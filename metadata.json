@@ -1,0 +1,10 @@
+{
+  "name": "Surgical Case Tracker",
+  "description": "A robust full-stack tracker for surgical procedures, patient checklists, drain tracking, complications, and follow-up milestones.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,1799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Surgical Case Tracker - Google Sheets Integration</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter (SANS) and Space Grotesk (DISPLAY) and JetBrains Mono (MONO) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+  
+  <script>
+    // Tailwind Custom Configuration to match current Clinical Emerald Theme
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+            display: ['Space Grotesk', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#0A2E2A] text-white min-h-screen relative overflow-x-hidden antialiased select-none">
+
+  <!-- Main Vue Application Container -->
+  <div id="app" v-cloak class="min-h-screen flex flex-col md:flex-row relative">
+
+    <!-- Ambient background mesh gradients matching local App.tsx -->
+    <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-600/10 rounded-full blur-[150px] pointer-events-none"></div>
+
+    <!-- Busy Network Sync Indicator -->
+    <div v-if="busy" class="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-600 animate-pulse z-50 shadow-sm"></div>
+
+    <!-- MOBILE HEADER -->
+    <header class="md:hidden bg-black/40 backdrop-blur-md text-white p-4 flex items-center justify-between sticky top-0 z-40 border-b border-white/10">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center font-bold text-slate-950 text-base">＋</div>
+        <div>
+          <h1 class="font-display font-bold text-sm tracking-wide text-white">Case Tracker</h1>
+          <span class="text-[10px] text-white/60 block -mt-1 font-semibold">Google Sheets Database</span>
+        </div>
+      </div>
+      <button @click="mobileMenuOpen = !mobileMenuOpen" class="text-white/60 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+        <!-- Hamburger Icon / Close Icon -->
+        <svg v-if="!mobileMenuOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </header>
+
+    <!-- SIDEBAR NAVIGATION -->
+    <aside :class="['fixed md:sticky top-[60px] md:top-0 bottom-0 left-0 right-0 md:right-auto w-full md:w-64 bg-black/30 backdrop-blur-xl border-r border-white/10 text-white z-30 transition-transform duration-300 md:translate-x-0', mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:block']" class="flex flex-col justify-between">
+      <div class="p-4 flex-1 flex flex-col justify-between md:min-h-screen">
+        <div>
+          <!-- Brand Logo Header -->
+          <div class="hidden md:flex items-center gap-3 px-2 py-4 mb-5 border-b border-white/10">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center font-bold text-slate-950 text-lg shadow-md shadow-emerald-500/20">＋</div>
+            <div>
+              <h1 class="font-display font-bold text-base tracking-wide leading-none text-white">Case Tracker</h1>
+              <span class="text-[10px] text-white/40 font-semibold block mt-1 tracking-wider uppercase">Google Sheets App</span>
+            </div>
+          </div>
+
+          <!-- Nav Menu Items -->
+          <nav class="space-y-1">
+            <button v-for="item in navItems" :key="item.id" @click="handleTabChange(item.id)" :class="['w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all text-left cursor-pointer', activeTab === item.id ? 'bg-white/10 text-white border border-white/10 shadow-sm font-bold' : 'text-white/60 hover:text-white hover:bg-white/5']">
+              <span class="w-4.5 h-4.5 shrink-0 flex items-center justify-center" v-html="item.svg"></span>
+              <span>{{ item.label }}</span>
+            </button>
+
+            <button @click="handleTabChange('new')" :class="['w-full flex items-center justify-center gap-2 mt-5 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer', activeTab === 'new' ? 'bg-white text-slate-950 font-bold border border-white/10' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md hover:shadow-lg']">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <span>New Case Intake</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- Google Sheet External Reference Info -->
+        <div class="hidden md:block pt-4 border-t border-white/10 px-2 mt-6">
+          <div class="mb-4">
+            <a :href="db?.sheetUrl" target="_blank" class="flex items-center gap-2 text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold underline">
+              <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+              Open Database Spreadsheet
+            </a>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold text-white/80">☺</div>
+            <div class="overflow-hidden">
+              <span class="text-[10.5px] text-white/40 block uppercase font-bold tracking-wider leading-none">Clinician Identity</span>
+              <span class="text-xs font-mono font-semibold text-emerald-400 truncate block mt-1 leading-none">{{ db?.user }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- LOADING SCREEN -->
+    <div v-if="loading || !db" class="flex-1 flex flex-col justify-center items-center p-8 z-50">
+      <div class="flex flex-col items-center gap-4 text-center">
+        <!-- Spinner SVG -->
+        <svg class="animate-spin h-10 w-10 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="text-sm font-semibold text-emerald-300 font-display tracking-wide animate-pulse">Loading Clinical Records from Google Sheet...</p>
+      </div>
+    </div>
+
+    <!-- MAIN APP SCREEN CONTENT (Only loaded when DB state is ready) -->
+    <main v-else class="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full relative z-10">
+      
+      <!-- ======================================================== TAB 1: DASHBOARD -->
+      <div v-if="activeTab === 'dash'" class="space-y-6">
+        <!-- Header info -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+          <div>
+            <h2 class="font-display font-bold text-2xl tracking-tight">Practice Dashboard</h2>
+            <p class="text-xs text-white/60 mt-1">Real-time aggregate clinical summaries and action thresholds.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="refreshAll" class="bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold py-2 px-3.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5 animate-spin-hover" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 19.5L18 16"></path></svg>
+              Refresh Google Sheets
+            </button>
+          </div>
+        </div>
+
+        <!-- Metric Stat Cards Grid -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Stat 1: Total Operations -->
+          <div class="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col justify-between">
+            <span class="text-[10px] font-bold text-white/40 uppercase tracking-wider block">Intake Cases</span>
+            <div class="flex items-baseline gap-2 mt-2">
+              <span class="font-display font-bold text-2xl text-white">{{ db.operations.length }}</span>
+              <span class="text-[10px] text-white/40">Total</span>
+            </div>
+          </div>
+          <!-- Stat 2: Active Drains -->
+          <div class="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col justify-between">
+            <span class="text-[10px] font-bold text-white/40 uppercase tracking-wider block">Active Drains</span>
+            <div class="flex items-baseline gap-2 mt-2">
+              <span class="font-display font-bold text-2xl text-rose-400">{{ activeDrainsCount }}</span>
+              <span class="text-[10px] text-rose-500/60 font-semibold" v-if="overdueDrainsCount > 0">{{ overdueDrainsCount }} Alert</span>
+            </div>
+          </div>
+          <!-- Stat 3: Complications -->
+          <div class="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col justify-between">
+            <span class="text-[10px] font-bold text-white/40 uppercase tracking-wider block">Unresolved Comps</span>
+            <div class="flex items-baseline gap-2 mt-2">
+              <span class="font-display font-bold text-2xl text-amber-400">{{ openComplicationsCount }}</span>
+              <span class="text-[10px] text-white/40">Active Logged</span>
+            </div>
+          </div>
+          <!-- Stat 4: Reviews Scheduled -->
+          <div class="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col justify-between">
+            <span class="text-[10px] font-bold text-white/40 uppercase tracking-wider block">Pending Reviews</span>
+            <div class="flex items-baseline gap-2 mt-2">
+              <span class="font-display font-bold text-2xl text-emerald-400">{{ upcomingApptsCount }}</span>
+              <span class="text-[10px] text-white/40">Next 14 Days</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Dashboard Split Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Column left (8 cols): Drains Overdue Alerts -->
+          <div class="lg:col-span-8 space-y-6">
+            <div class="bg-white/5 border border-white/10 p-5 rounded-2xl">
+              <h3 class="font-display font-bold text-sm tracking-wide text-white/95 flex items-center gap-2 mb-4">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                Active Drain Management & Threshold Warnings
+              </h3>
+              
+              <div v-if="dashDrains.length === 0" class="text-center py-6 text-white/40 text-xs italic">
+                No patients currently have surgical drains in situ. ✓
+              </div>
+              <div v-else class="space-y-3">
+                <div v-for="d in dashDrains" :key="d.PatientID" :class="['p-3.5 border rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 text-xs transition-colors', d.isOverdue ? 'bg-rose-950/20 border-rose-500/30' : 'bg-white/5 border-white/5']">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-bold text-white uppercase">{{ d.PatientID }}</span>
+                      <span :class="['py-0.5 px-1.5 rounded-full text-[9px] font-bold uppercase', d.isOverdue ? 'bg-rose-950 text-rose-400 border border-rose-500/30' : 'bg-white/5 text-white/60']">
+                        {{ d.isOverdue ? 'ALERT: EXCEEDED THRESHOLD' : 'Monitoring' }}
+                      </span>
+                    </div>
+                    <div class="text-white/60 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                      <span>Procedure: <strong class="text-white/80 font-semibold">{{ d.Procedure }}</strong></span>
+                      <span>Op Date: <strong class="text-white/80 font-semibold">{{ formatDate(d.OperationDate) }}</strong></span>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-4 justify-between sm:justify-end">
+                    <div class="text-right sm:pr-2">
+                      <span class="text-[10px] text-white/40 uppercase block">Days In Situ</span>
+                      <span :class="['font-display font-bold text-base', d.isOverdue ? 'text-rose-400' : 'text-emerald-400']">{{ d.days }} / {{ db.config.DrainAlertDays }} Days</span>
+                    </div>
+                    <button @click="handleMarkDrainRemoved(d.PatientID)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-1.5 px-3 rounded-lg text-xs cursor-pointer shadow-sm transition-colors">
+                      Mark Removed
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column right (4 cols): Clinic calendar preview -->
+          <div class="lg:col-span-4 space-y-6">
+            <div class="bg-white/5 border border-white/10 p-5 rounded-2xl">
+              <h3 class="font-display font-bold text-sm tracking-wide text-white/95 flex items-center gap-1.5 mb-4">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                Upcoming Clinic Reviews
+              </h3>
+              
+              <div v-if="dashAppts.length === 0" class="text-center py-8 text-white/40 text-xs italic">
+                No short-term reviews scheduled.
+              </div>
+              <div v-else class="space-y-2.5">
+                <div v-for="a in dashAppts" :key="a.id" @click="jumpToCalendarDate(a.Date)" class="p-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-xs">
+                  <div class="flex justify-between items-start">
+                    <span class="font-bold text-white uppercase truncate pr-2">{{ a.PatientID }}</span>
+                    <span class="text-[10px] font-bold py-0.5 px-1.5 rounded bg-emerald-950 text-emerald-400 uppercase tracking-wide shrink-0">{{ a.Type }}</span>
+                  </div>
+                  <div class="flex justify-between items-center text-white/50 text-[10px] mt-2 pt-1 border-t border-white/5">
+                    <span>{{ formatDate(a.Date) }} {{ a.Time ? 'at ' + a.Time : '' }}</span>
+                    <span class="italic text-emerald-500 font-medium">Click to view &rarr;</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ======================================================== TAB 2: OPERATIONS LOG -->
+      <div v-if="activeTab === 'ops'" class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+          <div>
+            <h2 class="font-display font-bold text-2xl tracking-tight">Surgical Intake Log</h2>
+            <p class="text-xs text-white/60 mt-1">Complete registry of surgical operations, drain states, and clinical checklists.</p>
+          </div>
+          <button @click="handleTabChange('new')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-md">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Intake New Patient
+          </button>
+        </div>
+
+        <!-- Search / Filter bar -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 text-xs">
+          <div>
+            <label class="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1">Search Patient ID</label>
+            <input v-model="opsSearch" type="text" placeholder="Filter patient identifier..." class="w-full py-1.5 px-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1">Surgeon</label>
+            <select v-model="opsSurgeonFilter" class="w-full py-1.5 px-3 bg-[#0A2E2A] border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500">
+              <option value="">All Surgeons</option>
+              <option v-for="s in db.lists.surgeons" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1">Procedure</label>
+            <select v-model="opsProcFilter" class="w-full py-1.5 px-3 bg-[#0A2E2A] border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500">
+              <option value="">All Procedures</option>
+              <option v-for="p in db.lists.procedures" :key="p" :value="p">{{ p }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1">Drain Status</label>
+            <select v-model="opsDrainFilter" class="w-full py-1.5 px-3 bg-[#0A2E2A] border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500">
+              <option value="">All States</option>
+              <option value="Yes">In Situ</option>
+              <option value="No">No Placement</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Operations Data Grid Table -->
+        <div class="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/10 bg-black/20 text-white/60 font-semibold">
+                  <th class="p-4 uppercase tracking-wider font-bold">Patient ID</th>
+                  <th class="p-4 uppercase tracking-wider font-bold">Date Operated</th>
+                  <th class="p-4 uppercase tracking-wider font-bold">Procedure</th>
+                  <th class="p-4 uppercase tracking-wider font-bold">Surgeon</th>
+                  <th class="p-4 uppercase tracking-wider font-bold">Age</th>
+                  <th class="p-4 uppercase tracking-wider font-bold">Drain Placed</th>
+                  <th class="p-4 text-right uppercase tracking-wider font-bold">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/10">
+                <tr v-for="o in filteredOperations" :key="o.id" class="hover:bg-white/5 transition-colors">
+                  <td class="p-4 font-bold text-emerald-400 uppercase font-mono tracking-wide">
+                    <button @click="openTimelineDrawer(o.PatientID)" class="hover:underline text-left cursor-pointer">{{ o.PatientID }}</button>
+                  </td>
+                  <td class="p-4 font-semibold text-white/95">{{ formatDate(o.OperationDate) }}</td>
+                  <td class="p-4 text-white/80 font-medium">{{ o.Procedure }}</td>
+                  <td class="p-4 text-white/80 font-medium">{{ o.Surgeon || '—' }}</td>
+                  <td class="p-4 text-white/60">{{ o.Age || '—' }}</td>
+                  <td class="p-4">
+                    <span :class="['py-0.5 px-2 rounded-full font-bold text-[10px]', o.DrainPlaced === 'Yes' ? 'bg-rose-950 text-rose-400 border border-rose-500/20' : 'bg-white/5 text-white/40']">
+                      {{ o.DrainPlaced === 'Yes' ? 'Yes (In Situ)' : 'No' }}
+                    </span>
+                  </td>
+                  <td class="p-4 text-right space-x-1.5">
+                    <button @click="openTimelineDrawer(o.PatientID)" class="py-1 px-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold rounded-lg text-[11px] transition-colors cursor-pointer">
+                      View Timeline
+                    </button>
+                    <button @click="openEditOperationModal(o)" class="py-1 px-2.5 bg-emerald-950/40 hover:bg-emerald-900/40 border border-emerald-500/30 text-emerald-300 font-semibold rounded-lg text-[11px] transition-colors cursor-pointer">
+                      Edit Case
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="filteredOperations.length === 0">
+                  <td colspan="7" class="p-8 text-center text-white/40 italic">No matching operations found.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== TAB 3: APPOINTMENTS CALENDAR -->
+      <div v-if="activeTab === 'appt'" class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+          <div>
+            <h2 class="font-display font-bold text-2xl tracking-tight">Appointments Calendar</h2>
+            <p class="text-xs text-white/60 mt-1">Short-term clinical wound checks, drain removals, and outpatient visits.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Schedule form (4 cols) -->
+          <div class="lg:col-span-4 bg-white/5 border border-white/10 p-5 rounded-2xl h-fit">
+            <h3 class="font-display font-bold text-sm tracking-wide text-white/90 mb-4">Book Clinical Review</h3>
+            <form @submit.prevent="handleAddAppointment" class="space-y-3.5 text-xs">
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1">Select Patient ID</label>
+                <select v-model="newAppt.PatientID" required class="w-full py-2 px-3 bg-[#0A2E2A] border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+                  <option value="" disabled>-- Select Case ID --</option>
+                  <option v-for="o in db.operations" :key="o.PatientID" :value="o.PatientID">{{ o.PatientID }} ({{ o.Procedure }})</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-white/40 uppercase mb-1">Date</label>
+                  <input v-model="newAppt.Date" type="date" required class="w-full py-1.5 px-2 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                  <label class="block font-bold text-white/40 uppercase mb-1">Time (Optional)</label>
+                  <input v-model="newAppt.Time" type="time" class="w-full py-1.5 px-2 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1">Review Type</label>
+                <select v-model="newAppt.Type" class="w-full py-2 px-3 bg-[#0A2E2A] border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+                  <option v-for="t in db.lists.apptTypes" :key="t" :value="t">{{ t }}</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1">Notes</label>
+                <textarea v-model="newAppt.Notes" class="w-full py-2 px-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500 min-h-[50px]"></textarea>
+              </div>
+
+              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl transition-all hover:shadow-md cursor-pointer">
+                Schedule Appointment
+              </button>
+            </form>
+          </div>
+
+          <!-- Appointments List & Scheduler Log (8 cols) -->
+          <div class="lg:col-span-8 space-y-4">
+            <!-- Search bar -->
+            <div class="bg-white/5 p-3.5 border border-white/10 rounded-2xl flex flex-col sm:flex-row gap-3 justify-between items-center text-xs">
+              <span class="font-semibold text-white/80">Filter:</span>
+              <input v-model="apptSearch" type="text" placeholder="Search patient ID or review type..." class="py-1.5 px-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 w-full sm:w-64">
+            </div>
+
+            <div class="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr class="border-b border-white/10 bg-black/20 text-white/60 font-semibold">
+                      <th class="p-4 font-bold uppercase tracking-wide">Patient ID</th>
+                      <th class="p-4 font-bold uppercase tracking-wide">Date & Time</th>
+                      <th class="p-4 font-bold uppercase tracking-wide">Review Type</th>
+                      <th class="p-4 font-bold uppercase tracking-wide">Status</th>
+                      <th class="p-4 font-bold uppercase tracking-wide">Notes</th>
+                      <th class="p-4 text-right font-bold uppercase tracking-wide">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-white/10">
+                    <tr v-for="a in filteredAppointments" :key="a.id" class="hover:bg-white/5 transition-colors">
+                      <td class="p-4 font-bold text-emerald-400 uppercase font-mono">
+                        <button @click="openTimelineDrawer(a.PatientID)" class="hover:underline cursor-pointer">{{ a.PatientID }}</button>
+                      </td>
+                      <td class="p-4 font-semibold text-white/95">
+                        {{ formatDate(a.Date) }}
+                        <span class="text-[10px] text-white/40 block mt-0.5" v-if="a.Time">{{ a.Time }}</span>
+                      </td>
+                      <td class="p-4">
+                        <span class="font-semibold text-white">{{ a.Type }}</span>
+                      </td>
+                      <td class="p-4">
+                        <select :value="a.Status" @change="handleSetAppointmentStatus(a._row, $event.target.value)" :class="['py-1 px-2.5 rounded-lg border font-bold text-[10px] uppercase outline-none bg-[#0A2E2A]', a.Status === 'Done' ? 'text-emerald-300 border-emerald-500/20' : a.Status === 'Scheduled' ? 'text-white border-white/10' : 'text-rose-300 border-rose-500/20']">
+                          <option v-for="st in db.lists.apptStatus" :key="st" :value="st">{{ st }}</option>
+                        </select>
+                      </td>
+                      <td class="p-4 text-white/50 truncate max-w-[150px]" :title="a.Notes">{{ a.Notes || '—' }}</td>
+                      <td class="p-4 text-right">
+                        <button @click="handleDeleteAppointment(a._row)" class="py-1 px-2 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-500/30 text-rose-300 font-semibold rounded-lg text-[10px] transition-colors cursor-pointer">
+                          Cancel
+                        </button>
+                      </td>
+                    </tr>
+                    <tr v-if="filteredAppointments.length === 0">
+                      <td colspan="6" class="p-8 text-center text-white/40 italic">No scheduled clinic review appointments logged.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ======================================================== TAB 4: DRAINAGE TRACKING -->
+      <div v-if="activeTab === 'drains'" class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+          <div>
+            <h2 class="font-display font-bold text-2xl tracking-tight">Active Drainage Tracking</h2>
+            <p class="text-xs text-white/60 mt-1">Calculates post-op duration and triggers action warnings for active surgical drains.</p>
+          </div>
+        </div>
+
+        <div class="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/10 bg-black/20 text-white/60 font-semibold">
+                  <th class="p-4 font-bold uppercase">Patient ID</th>
+                  <th class="p-4 font-bold uppercase">Procedure</th>
+                  <th class="p-4 font-bold uppercase">Placement Date</th>
+                  <th class="p-4 font-bold uppercase">Removal Status</th>
+                  <th class="p-4 font-bold uppercase">Days In Situ</th>
+                  <th class="p-4 text-right font-bold uppercase">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/10">
+                <tr v-for="d in drainsList" :key="d.PatientID" class="hover:bg-white/5 transition-colors">
+                  <td class="p-4 font-bold text-emerald-400 uppercase font-mono">
+                    <button @click="openTimelineDrawer(d.PatientID)" class="hover:underline cursor-pointer">{{ d.PatientID }}</button>
+                  </td>
+                  <td class="p-4 text-white/80 font-medium">{{ d.Procedure }}</td>
+                  <td class="p-4 text-white/60">{{ formatDate(d.OperationDate) }}</td>
+                  <td class="p-4">
+                    <span :class="['py-0.5 px-2.5 rounded-full font-bold text-[10px] uppercase border', d.isRemoved ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/20' : 'bg-rose-950/40 text-rose-300 border-rose-500/20']">
+                      {{ d.isRemoved ? 'Removed' : 'Active In Situ' }}
+                    </span>
+                    <span class="text-[10px] text-white/40 block mt-1 font-mono" v-if="d.isRemoved">
+                      Removed {{ formatDate(d.RemovedDate) }} by {{ d.RemovedBy }}
+                    </span>
+                  </td>
+                  <td class="p-4">
+                    <div class="flex items-center gap-2">
+                      <span :class="['font-display font-bold text-sm', d.isOverdue ? 'text-rose-400' : 'text-emerald-400']">
+                        {{ d.days }} Days
+                      </span>
+                      <span v-if="d.isOverdue" class="py-0.5 px-1.5 rounded-full bg-rose-950 text-rose-400 border border-rose-500/20 text-[9px] font-bold">
+                        OVER {{ db.config.DrainAlertDays }} DAY ALERT
+                      </span>
+                    </div>
+                  </td>
+                  <td class="p-4 text-right">
+                    <button v-if="!d.isRemoved" @click="handleMarkDrainRemoved(d.PatientID)" class="py-1 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer shadow-sm">
+                      Mark Removed
+                    </button>
+                    <button v-else @click="handleUndoDrainRemoval(d.PatientID)" class="py-1 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white rounded-lg text-xs transition-colors cursor-pointer">
+                      Undo Removal
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="drainsList.length === 0">
+                  <td colspan="6" class="p-8 text-center text-white/40 italic">No patients configured with surgical drains.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== TAB 5: COMPLICATIONS REGISTRY -->
+      <div v-if="activeTab === 'comps'" class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+          <div>
+            <h2 class="font-display font-bold text-2xl tracking-tight">Complications Registry</h2>
+            <p class="text-xs text-white/60 mt-1">Clavien-Dindo clinical classification and dynamic tracking log.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Add complication Form (4 cols) -->
+          <div class="lg:col-span-4 bg-white/5 border border-white/10 p-5 rounded-2xl h-fit">
+            <h3 class="font-display font-bold text-sm tracking-wide text-white/95 mb-4">Log Adverse Event</h3>
+            <form @submit.prevent="handleAddComplication" class="space-y-3.5 text-xs">
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1">Select Case ID</label>
+                <select v-model="newComp.PatientID" required class="w-full py-2 px-3 bg-[#0A2E2A] border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+                  <option value="" disabled>-- Select Case ID --</option>
+                  <option v-for="o in db.operations" :key="o.PatientID" :value="o.PatientID">{{ o.PatientID }} ({{ o.Procedure }})</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1">Complication Type</label>
+                <select v-model="newComp.Complication" class="w-full py-2 px-3 bg-[#0A2E2A] border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+                  <option v-for="c in db.lists.complications" :key="c" :value="c">{{ c }}</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-white/40 uppercase mb-1">Clavien Grade</label>
+                  <select v-model="newComp.Grade" class="w-full py-2 px-3 bg-[#0A2E2A] border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500 font-bold font-mono">
+                    <option value="I">I</option>
+                    <option value="II">II</option>
+                    <option value="IIIa">IIIa</option>
+                    <option value="IIIb">IIIb</option>
+                    <option value="IVa">IVa</option>
+                    <option value="IVb">IVb</option>
+                    <option value="V">V</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-white/40 uppercase mb-1">Date Detected</label>
+                  <input v-model="newComp.DateDetected" type="date" required class="w-full py-1.5 px-2 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1">Management Notes</label>
+                <textarea v-model="newComp.Management" class="w-full py-2 px-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500 min-h-[50px] placeholder-white/20" placeholder="e.g. Bedside aspiration / antibiotics..."></textarea>
+              </div>
+
+              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl transition-all hover:shadow-md cursor-pointer">
+                Log Complication
+              </button>
+            </form>
+          </div>
+
+          <!-- Complications Table Log (8 cols) -->
+          <div class="lg:col-span-8 space-y-4">
+            <div class="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr class="border-b border-white/10 bg-black/20 text-white/60 font-semibold">
+                      <th class="p-4 font-bold uppercase">Patient ID</th>
+                      <th class="p-4 font-bold uppercase">Complication Type</th>
+                      <th class="p-4 font-bold uppercase">Grade</th>
+                      <th class="p-4 font-bold uppercase">Date Detected</th>
+                      <th class="p-4 font-bold uppercase">Status</th>
+                      <th class="p-4 text-right font-bold uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-white/10">
+                    <tr v-for="c in db.complications" :key="c.id" class="hover:bg-white/5 transition-colors">
+                      <td class="p-4 font-bold text-emerald-400 uppercase font-mono">
+                        <button @click="openTimelineDrawer(c.PatientID)" class="hover:underline cursor-pointer">{{ c.PatientID }}</button>
+                      </td>
+                      <td class="p-4">
+                        <span class="font-semibold text-white">{{ c.Complication }}</span>
+                        <span class="text-[10px] text-white/40 block mt-0.5" v-if="c.Management">{{ c.Management }}</span>
+                      </td>
+                      <td class="p-4 font-bold text-amber-400 font-mono">Grade {{ c.Grade }}</td>
+                      <td class="p-4 text-white/60">{{ formatDate(c.DateDetected) }}</td>
+                      <td class="p-4">
+                        <span :class="['py-0.5 px-2.5 rounded-full font-bold text-[9px] uppercase border', c.Resolved === 'Yes' ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/20' : 'bg-rose-950/40 text-rose-300 border-rose-500/20']">
+                          {{ c.Resolved === 'Yes' ? 'Resolved' : 'Active' }}
+                        </span>
+                        <span class="text-[9px] text-white/40 block mt-1" v-if="c.Resolved === 'Yes'">On {{ formatDate(c.ResolvedDate) }}</span>
+                      </td>
+                      <td class="p-4 text-right space-x-1.5">
+                        <button v-if="c.Resolved !== 'Yes'" @click="handleResolveComplication(c._row)" class="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-[10px] transition-all cursor-pointer">
+                          Mark Resolved
+                        </button>
+                        <button @click="openEditComplicationModal(c)" class="py-1 px-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-lg text-[10px] transition-all cursor-pointer">
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                    <tr v-if="db.complications.length === 0">
+                      <td colspan="6" class="p-8 text-center text-white/40 italic">No adverse complications logged in database registry. ✓</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ======================================================== TAB 6: FOLLOW-UP MILESTONES -->
+      <div v-if="activeTab === 'fu'" class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+          <div>
+            <h2 class="font-display font-bold text-2xl tracking-tight">Milestone Review Records</h2>
+            <p class="text-xs text-white/60 mt-1">Grid review tracking at 1, 3, 6, and 12-month post-operative milestones.</p>
+          </div>
+        </div>
+
+        <div class="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-white/10 bg-black/20 text-white/60 font-semibold">
+                  <th class="p-4 font-bold uppercase">Patient ID</th>
+                  <th class="p-4 font-bold uppercase">Procedure</th>
+                  <th class="p-4 font-bold uppercase">Op Date</th>
+                  <th class="p-4 font-bold uppercase">M1 Milestone</th>
+                  <th class="p-4 font-bold uppercase">M3 Milestone</th>
+                  <th class="p-4 font-bold uppercase">M6 Milestone</th>
+                  <th class="p-4 font-bold uppercase">M12 Milestone</th>
+                  <th class="p-4 text-right font-bold uppercase">Final Outcome</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/10">
+                <tr v-for="f in db.followup" :key="f.PatientID" class="hover:bg-white/5 transition-colors">
+                  <td class="p-4 font-bold text-emerald-400 uppercase font-mono">
+                    <button @click="openTimelineDrawer(f.PatientID)" class="hover:underline cursor-pointer">{{ f.PatientID }}</button>
+                  </td>
+                  <!-- Map procedure details -->
+                  <td class="p-4 text-white/80 font-medium">{{ getOpDetails(f.PatientID)?.Procedure || '—' }}</td>
+                  <td class="p-4 text-white/50">{{ formatDate(getOpDetails(f.PatientID)?.OperationDate) }}</td>
+                  
+                  <!-- Milestones selectors -->
+                  <td v-for="mKey in ['M1', 'M3', 'M6', 'M12']" :key="mKey" class="p-4">
+                    <div class="flex flex-col gap-1">
+                      <select :value="f[mKey]" @change="handleSetFollowUp(f.PatientID, mKey, $event.target.value)" :class="['py-1 px-1.5 rounded border text-[10px] uppercase outline-none font-bold bg-[#0A2E2A]', getMilestoneColorClass(f[mKey], mKey, getOpDetails(f.PatientID)?.OperationDate)]">
+                        <option v-for="st in db.lists.fuStatus" :key="st" :value="st">{{ st }}</option>
+                      </select>
+                      <span :class="['text-[9px] font-semibold tracking-wide', isMilestoneLate(mKey, getOpDetails(f.PatientID)?.OperationDate) && f[mKey] === '—' ? 'text-rose-400 font-bold' : 'text-white/30']">
+                        Due: {{ getMilestoneDueDate(mKey, getOpDetails(f.PatientID)?.OperationDate) }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <!-- Final Outcome -->
+                  <td class="p-4 text-right">
+                    <select :value="f.FinalOutcome" @change="handleSetFollowUp(f.PatientID, 'FinalOutcome', $event.target.value)" :class="['py-1 px-2.5 rounded-xl border text-[10px] font-bold uppercase bg-[#0A2E2A]', f.FinalOutcome === 'Success' ? 'text-emerald-300 border-emerald-500/20' : f.FinalOutcome === 'Ongoing' ? 'text-white border-white/10' : 'text-rose-300 border-rose-500/20']">
+                      <option v-for="out in db.lists.outcomes" :key="out" :value="out">{{ out }}</option>
+                    </select>
+                  </td>
+                </tr>
+                <tr v-if="db.followup.length === 0">
+                  <td colspan="8" class="p-8 text-center text-white/40 italic">No patient operations found to schedule follow-ups.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== TAB 7: SYSTEM SETTINGS -->
+      <div v-if="activeTab === 'set'" class="space-y-6">
+        <div class="flex items-center justify-between pb-4 border-b border-white/10">
+          <div>
+            <h2 class="font-display font-bold text-2xl tracking-tight">System Settings</h2>
+            <p class="text-xs text-white/60 mt-1">Master checklist definitions, threshold configurations, and backup imports.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Column left: Offset periods & Alert days config -->
+          <div class="space-y-6">
+            <div class="bg-white/5 border border-white/10 p-5 rounded-2xl">
+              <h3 class="font-display font-bold text-sm tracking-wide text-white/95 mb-4">Offset Targets & Alert Limits</h3>
+              <form @submit.prevent="handleSaveConfig" class="space-y-4 text-xs">
+                <div>
+                  <label class="block font-bold text-white/40 uppercase mb-1">Max Active Drain Placement Period (Days)</label>
+                  <input v-model.number="configForm.DrainAlertDays" type="number" min="1" required class="w-full py-2 px-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block font-bold text-white/40 uppercase mb-1">M1 Milestone Offset (Months)</label>
+                    <input v-model.number="configForm.FU1" type="number" min="1" required class="w-full py-2 px-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                  </div>
+                  <div>
+                    <label class="block font-bold text-white/40 uppercase mb-1">M3 Milestone Offset (Months)</label>
+                    <input v-model.number="configForm.FU2" type="number" min="1" required class="w-full py-2 px-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block font-bold text-white/40 uppercase mb-1">M6 Milestone Offset (Months)</label>
+                    <input v-model.number="configForm.FU3" type="number" min="1" required class="w-full py-2 px-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                  </div>
+                  <div>
+                    <label class="block font-bold text-white/40 uppercase mb-1">M12 Milestone Offset (Months)</label>
+                    <input v-model.number="configForm.FU4" type="number" min="1" required class="w-full py-2 px-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                  </div>
+                </div>
+
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer">
+                  Save Clinical Configurations
+                </button>
+              </form>
+            </div>
+
+            <!-- Master items lists backup configuration -->
+            <div class="bg-white/5 border border-white/10 p-5 rounded-2xl">
+              <h3 class="font-display font-bold text-sm tracking-wide text-white/95 mb-4">Database JSON Integration</h3>
+              <div class="space-y-3.5 text-xs">
+                <p class="text-white/60 leading-normal">You can restore spreadsheet tables using a local backup export file. Note that this replaces all records in the existing sheets.</p>
+                <div>
+                  <label class="block font-bold text-white/40 uppercase mb-1">Select Backup JSON File</label>
+                  <input type="file" @change="handleFileBackupUpload" accept=".json" class="w-full py-2 bg-white/5 border border-white/10 rounded-xl px-2 text-white">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column right: Master list inputs -->
+          <div class="space-y-6">
+            <div class="bg-white/5 border border-white/10 p-5 rounded-2xl">
+              <h3 class="font-display font-bold text-sm tracking-wide text-white/95 mb-4">Master Customization Lists</h3>
+              <div class="space-y-4 text-xs">
+                <div v-for="lType in ['surgeons', 'procedures', 'complications', 'checklist']" :key="lType">
+                  <label class="block font-bold text-white/40 uppercase mb-1.5">{{ lType === 'checklist' ? 'Pre/Post-Op Checklist Templates' : lType }} (comma separated)</label>
+                  <div class="flex gap-2">
+                    <input :value="getListString(lType)" :id="'list-input-' + lType" type="text" class="flex-1 py-1.5 px-3 bg-white/5 border border-white/10 rounded-xl text-white">
+                    <button @click="saveMasterListFromInput(lType)" class="bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold px-4 rounded-xl transition-all cursor-pointer">
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ======================================================== TAB 8: NEW CASE INTAKE -->
+      <div v-if="activeTab === 'new'" class="space-y-6">
+        <div class="pb-4 border-b border-white/10">
+          <h2 class="font-display font-bold text-2xl tracking-tight">New Case Intake</h2>
+          <p class="text-xs text-white/60 mt-1">Register new surgical intake records, active drains, and baseline information.</p>
+        </div>
+
+        <div class="bg-white/5 border border-white/10 p-6 rounded-3xl max-w-2xl mx-auto">
+          <form @submit.prevent="handleAddOperation" class="space-y-4 text-xs">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block font-bold text-white/40 uppercase tracking-wide mb-1.5">Patient ID / Identifier</label>
+                <input v-model="newOp.PatientID" type="text" required placeholder="e.g. PAT-908" class="w-full py-2.5 px-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500 uppercase font-bold">
+              </div>
+              <div>
+                <label class="block font-bold text-white/40 uppercase tracking-wide mb-1.5">Age</label>
+                <input v-model.number="newOp.Age" type="number" min="0" max="120" placeholder="e.g. 45" class="w-full py-2.5 px-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block font-bold text-white/40 uppercase tracking-wide mb-1.5">Operation Date</label>
+                <input v-model="newOp.OperationDate" type="date" required class="w-full py-2 px-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+              </div>
+              <div>
+                <label class="block font-bold text-white/40 uppercase tracking-wide mb-1.5">Drain Placed In-Situ?</label>
+                <select v-model="newOp.DrainPlaced" class="w-full py-2.5 px-3 bg-[#0A2E2A] border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+                  <option :value="false">No Placement</option>
+                  <option :value="true">Yes, Active</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-bold text-white/40 uppercase tracking-wide mb-1.5">Surgical Procedure</label>
+              <select v-model="newOp.Procedure" required class="w-full py-2.5 px-3 bg-[#0A2E2A] border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+                <option value="" disabled>-- Select Procedure --</option>
+                <option v-for="p in db.lists.procedures" :key="p" :value="p">{{ p }}</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-bold text-white/40 uppercase tracking-wide mb-1.5">Attending Surgeon</label>
+              <select v-model="newOp.Surgeon" class="w-full py-2.5 px-3 bg-[#0A2E2A] border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500">
+                <option value="">-- Select Surgeon --</option>
+                <option v-for="s in db.lists.surgeons" :key="s" :value="s">{{ s }}</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-bold text-white/40 uppercase tracking-wide mb-1.5">Clinical Intake Notes</label>
+              <textarea v-model="newOp.Notes" placeholder="Describe surgical indications, intra-op details, or specifics..." class="w-full py-2.5 px-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-emerald-500 min-h-[80px]"></textarea>
+            </div>
+
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg hover:shadow-emerald-500/10 cursor-pointer">
+              Register Surgical Case Intake
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ======================================================== PATIENT TIMELINE DRAWER -->
+    <div v-if="selectedPid" class="fixed inset-0 z-50 flex justify-end">
+      <!-- Backdrop overlay -->
+      <div class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" @click="selectedPid = null"></div>
+
+      <!-- Drawer Panel Container -->
+      <aside class="relative w-full max-w-[460px] bg-[#061E1B]/95 backdrop-blur-xl border-l border-white/10 text-white h-full shadow-2xl flex flex-col justify-between overflow-y-auto">
+        <div v-if="drawerOp">
+          <!-- Header block -->
+          <div class="bg-gradient-to-br from-emerald-950/80 to-[#0A2E2A]/90 border-b border-white/10 p-6 relative">
+            <button @click="selectedPid = null" class="absolute top-5 right-5 text-white/60 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <span class="font-mono text-xs font-bold text-emerald-400 tracking-wider uppercase block">Patient Timeline</span>
+            <h3 class="font-display font-bold text-2xl mt-1 tracking-tight">{{ drawerOp.PatientID }}</h3>
+            <p class="font-display font-medium text-white/80 mt-1">{{ drawerOp.Procedure }}</p>
+
+            <div class="text-xs text-white/60 mt-4 space-y-1">
+              <div>Age: <span class="text-white font-semibold">{{ drawerOp.Age || '—' }}</span></div>
+              <div>Operated: <span class="text-white font-semibold">{{ formatDate(drawerOp.OperationDate) }}</span></div>
+              <div>Surgeon: <span class="text-white font-semibold">{{ drawerOp.Surgeon || '—' }}</span></div>
+            </div>
+
+            <!-- Header Quick Action buttons -->
+            <div class="flex gap-2.5 mt-5 border-t border-white/10 pt-4">
+              <button @click="openEditFromDrawer(drawerOp)" class="flex-1 bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold py-1.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer">
+                Edit Case
+              </button>
+              <a :href="'https://drive.google.com/drive/search?q=' + encodeURIComponent(drawerOp.PatientID)" target="_blank" class="flex-1 bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold py-1.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer">
+                Patient Photos
+              </a>
+            </div>
+          </div>
+
+          <!-- Body contents -->
+          <div class="p-6 space-y-6 divide-y divide-white/10">
+            <!-- Checklist items -->
+            <div class="pt-0 first:pt-0">
+              <h4 class="font-display font-bold text-[10.5px] uppercase tracking-wider text-white/40 mb-3 flex items-center gap-1.5">
+                Pre & Post-op Checklist
+              </h4>
+              <div class="space-y-2">
+                <label v-for="item in db.lists.checklistItems" :key="item" class="flex items-center gap-2.5 p-2.5 border border-white/10 rounded-xl hover:bg-white/5 cursor-pointer text-xs font-semibold text-white/80 transition-colors">
+                  <input type="checkbox" :checked="isChecklistDone(drawerOp.PatientID, item)" @change="handleToggleCheckItem(drawerOp.PatientID, item, $event.target.checked)" class="w-4.5 h-4.5 accent-emerald-500 rounded cursor-pointer">
+                  <span>{{ item }}</span>
+                </label>
+                <p v-if="db.lists.checklistItems.length === 0" class="text-white/40 italic text-xs">No checklist configured in settings.</p>
+              </div>
+            </div>
+
+            <!-- Clinic appointments list -->
+            <div class="pt-5">
+              <h4 class="font-display font-bold text-[10.5px] uppercase tracking-wider text-white/40 mb-3">Clinic Appointments</h4>
+              <div class="space-y-2">
+                <div v-for="a in drawerAppts" :key="a.id" class="p-3 bg-white/5 border border-white/10 rounded-xl flex justify-between items-center text-xs">
+                  <div>
+                    <span class="font-semibold text-white font-display block">{{ a.Type }}</span>
+                    <span class="text-white/40 text-[10px] mt-0.5 inline-block">
+                      {{ formatDate(a.Date) }} {{ a.Time ? 'at ' + a.Time : '' }}
+                    </span>
+                  </div>
+                  <span class="font-bold text-[10px] uppercase py-0.5 px-2 bg-white/5 border border-white/10 text-white/60 rounded">
+                    {{ a.Status }}
+                  </span>
+                </div>
+                <p v-if="drawerAppts.length === 0" class="text-white/40 italic text-xs">No outpatient appointments scheduled.</p>
+              </div>
+            </div>
+
+            <!-- Drains status -->
+            <div class="pt-5">
+              <h4 class="font-display font-bold text-[10.5px] uppercase tracking-wider text-white/40 mb-3">Drain Removal Track</h4>
+              <div v-if="drawerOp.DrainPlaced === 'Yes'" class="bg-rose-950/20 border border-rose-500/20 p-4 rounded-xl space-y-2 text-xs">
+                <div class="flex justify-between">
+                  <span class="text-white/60">Placed Date</span>
+                  <span class="font-semibold text-white">{{ formatDate(drawerOp.OperationDate) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-white/60">Removal Status</span>
+                  <span :class="['font-bold', drawerDrainRemoval ? 'text-white/60' : 'text-rose-400']">
+                    {{ drawerDrainRemoval ? 'Removed ' + formatDate(drawerDrainRemoval.RemovedDate) : 'Active In Situ' }}
+                  </span>
+                </div>
+                <div class="flex justify-between border-t border-rose-500/10 pt-2 mt-2">
+                  <span class="text-white/60">Days In Situ</span>
+                  <span class="font-display font-bold text-sm text-rose-400">{{ getDrawerDrainInSituDays() }} Days</span>
+                </div>
+              </div>
+              <p v-else class="text-white/40 italic text-xs">No drainage placement reported for this case.</p>
+            </div>
+
+            <!-- Logged Complications -->
+            <div class="pt-5 pb-8">
+              <h4 class="font-display font-bold text-[10.5px] uppercase tracking-wider text-white/40 mb-3">Logged Complications</h4>
+              <div class="space-y-2">
+                <div v-for="c in drawerComps" :key="c.id" class="p-3 bg-amber-950/20 border border-amber-500/20 rounded-xl text-xs flex justify-between items-start">
+                  <div>
+                    <span class="font-bold text-white block">
+                      {{ c.Complication }} • Clavien {{ c.Grade }}
+                    </span>
+                    <span class="text-white/60 block text-[10.5px] mt-0.5" v-if="c.Management">{{ c.Management }}</span>
+                  </div>
+                  <span :class="['font-semibold py-0.5 px-2 rounded-full text-[9px]', c.Resolved === 'Yes' ? 'bg-emerald-950/40 border border-emerald-500/30 text-emerald-300' : 'bg-rose-950/40 border border-rose-500/30 text-rose-300']">
+                    {{ c.Resolved === 'Yes' ? 'Resolved' : 'Active' }}
+                  </span>
+                </div>
+                <p v-if="drawerComps.length === 0" class="text-white/40 italic text-xs">No complications reported for this case. ✓</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ======================================================== EDIT OPERATION CASE MODAL -->
+    <div v-if="editingOperation" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      <div class="bg-[#061E1B]/95 backdrop-blur-xl rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-white/10 text-white flex flex-col justify-between">
+        <div>
+          <!-- Header -->
+          <div class="bg-gradient-to-r from-emerald-950/80 to-[#0A2E2A]/90 border-b border-white/10 text-white px-6 py-4 flex items-center justify-between">
+            <div>
+              <span class="font-mono text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Surgical Intake Edit</span>
+              <h3 class="font-display font-bold text-lg mt-0.5">Edit Case: {{ editingOperation.PatientID }}</h3>
+            </div>
+            <button @click="editingOperation = null" class="text-white/60 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+
+          <!-- Form contents -->
+          <form @submit.prevent="handleUpdateOperation" class="p-6 space-y-4 text-xs">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1.5">Patient ID</label>
+                <input v-model="opForm.PatientID" type="text" required class="w-full py-2 px-3 border border-white/10 rounded-xl bg-white/5 uppercase font-bold text-white">
+              </div>
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1.5">Age</label>
+                <input v-model.number="opForm.Age" type="number" class="w-full py-2 px-3 border border-white/10 rounded-xl bg-white/5 text-white">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1.5">Operation Date</label>
+                <input v-model="opForm.OperationDate" type="date" required class="w-full py-2 px-3 border border-white/10 rounded-xl bg-white/5 text-white">
+              </div>
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1.5">Drain Placed</label>
+                <select v-model="opForm.DrainPlaced" class="w-full py-2 px-3 border border-white/10 rounded-xl bg-[#0A2E2A] text-white">
+                  <option :value="false">No</option>
+                  <option :value="true">Yes</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-bold text-white/40 uppercase mb-1.5">Procedure</label>
+              <select v-model="opForm.Procedure" required class="w-full py-2 px-3 border border-white/10 rounded-xl bg-[#0A2E2A] text-white">
+                <option v-for="p in db.lists.procedures" :key="p" :value="p">{{ p }}</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-bold text-white/40 uppercase mb-1.5">Surgeon</label>
+              <select v-model="opForm.Surgeon" class="w-full py-2 px-3 border border-white/10 rounded-xl bg-[#0A2E2A] text-white">
+                <option v-for="s in db.lists.surgeons" :key="s" :value="s">{{ s }}</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-bold text-white/40 uppercase mb-1.5">Notes</label>
+              <textarea v-model="opForm.Notes" class="w-full py-2 px-3 border border-white/10 rounded-xl bg-white/5 text-white min-h-[60px]"></textarea>
+            </div>
+
+            <!-- Warn Info Cascade update -->
+            <div class="bg-amber-950/20 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2 text-[10px] text-amber-300">
+              <span>⚠️</span>
+              <p>* Renaming Patient ID cascades to all Appointments, Checklist items, Drains, and Complications registries automatically.</p>
+            </div>
+
+            <!-- Actions row -->
+            <div class="flex justify-between items-center border-t border-white/10 pt-4 mt-4 gap-2">
+              <button type="button" @click="handleDeleteOperation" class="bg-rose-950/40 hover:bg-rose-900/40 border border-rose-500/30 text-rose-300 font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer">
+                Delete Case
+              </button>
+              <div class="flex gap-2">
+                <button type="button" @click="editingOperation = null" class="bg-white/10 hover:bg-white/15 text-white border border-white/10 font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-4 rounded-xl transition-all hover:shadow-md cursor-pointer border border-emerald-400/20 shadow-lg">
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== EDIT COMPLICATION MODAL -->
+    <div v-if="editingComplication" class="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      <div class="bg-[#061E1B]/95 backdrop-blur-xl rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-white/10 text-white flex flex-col justify-between">
+        <div>
+          <!-- Header -->
+          <div class="bg-gradient-to-r from-emerald-950/80 to-[#0A2E2A]/90 border-b border-white/10 text-white px-6 py-4 flex items-center justify-between">
+            <div>
+              <span class="font-mono text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">Adverse Event Registry Edit</span>
+              <h3 class="font-display font-bold text-lg mt-0.5">Edit Case Event: {{ editingComplication.PatientID }}</h3>
+            </div>
+            <button @click="editingComplication = null" class="text-white/60 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+
+          <!-- Form contents -->
+          <form @submit.prevent="handleUpdateComplication" class="p-6 space-y-4 text-xs">
+            <div>
+              <label class="block font-bold text-white/40 uppercase mb-1.5">Complication Type</label>
+              <select v-model="compForm.Complication" required class="w-full py-2 px-3 border border-white/10 rounded-xl bg-[#0A2E2A] text-white">
+                <option v-for="c in db.lists.complications" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1.5">Clavien Grade</label>
+                <select v-model="compForm.Grade" required class="w-full py-2 px-3 border border-white/10 rounded-xl bg-[#0A2E2A] text-white font-bold">
+                  <option value="I">I</option>
+                  <option value="II">II</option>
+                  <option value="IIIa">IIIa</option>
+                  <option value="IIIb">IIIb</option>
+                  <option value="IVa">IVa</option>
+                  <option value="IVb">IVb</option>
+                  <option value="V">V</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-bold text-white/40 uppercase mb-1.5">Date Detected</label>
+                <input v-model="compForm.DateDetected" type="date" required class="w-full py-2 px-3 border border-white/10 rounded-xl bg-white/5 text-white">
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-bold text-white/40 uppercase mb-1.5">Management</label>
+              <textarea v-model="compForm.Management" class="w-full py-2 px-3 border border-white/10 rounded-xl bg-white/5 text-white min-h-[50px]"></textarea>
+            </div>
+
+            <div class="flex items-center gap-2.5 py-1">
+              <input type="checkbox" id="resolved-comp-chk" v-model="compForm.Resolved" class="w-5 h-5 accent-emerald-500 rounded cursor-pointer">
+              <label for="resolved-comp-chk" class="text-xs font-semibold text-white/80 cursor-pointer">Mark Complication as Resolved</label>
+            </div>
+
+            <!-- Actions row -->
+            <div class="flex justify-between items-center border-t border-white/10 pt-4 mt-4 gap-2">
+              <button type="button" @click="handleDeleteComplication" class="bg-rose-950/40 hover:bg-rose-900/40 border border-rose-500/30 text-rose-300 font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer">
+                Delete Log
+              </button>
+              <div class="flex gap-2">
+                <button type="button" @click="editingComplication = null" class="bg-white/10 hover:bg-white/15 text-white border border-white/10 font-semibold py-2 px-4 rounded-xl transition-all cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-4 rounded-xl transition-all hover:shadow-md cursor-pointer border border-emerald-400/20 shadow-lg">
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== NOTIFICATION TOAST -->
+    <div v-if="toast" :class="['fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl shadow-2xl font-semibold text-xs transition-all duration-300 z-50 flex items-center gap-2 border backdrop-blur-md', toast.isError ? 'bg-rose-950/80 border-rose-500 text-rose-200' : 'bg-emerald-950/80 border-emerald-500 text-emerald-200']">
+      <span>{{ toast.isError ? '⚠️' : '✓' }}</span>
+      <span>{{ toast.message }}</span>
+    </div>
+
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        // Core DB Database structures
+        const db = ref(null);
+        const loading = ref(true);
+        const busy = ref(false);
+        const activeTab = ref('dash');
+        const mobileMenuOpen = ref(false);
+        const toast = ref(null);
+
+        // Submodals drawers selections
+        const selectedPid = ref(null);
+        const editingOperation = ref(null);
+        const editingComplication = ref(null);
+
+        // Navigation elements with inline simple path icon SVG strings
+        const navItems = [
+          { id: 'dash', label: 'Dashboard', svg: `<svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>` },
+          { id: 'ops', label: 'Operations Log', svg: `<svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>` },
+          { id: 'appt', label: 'Appointments Calendar', svg: `<svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>` },
+          { id: 'drains', label: 'Drainage Tracking', svg: `<svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>` },
+          { id: 'comps', label: 'Complications Registry', svg: `<svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>` },
+          { id: 'fu', label: 'Milestone Review', svg: `<svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>` },
+          { id: 'set', label: 'System Settings', svg: `<svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>` }
+        ];
+
+        // Search inputs / Filter values states
+        const opsSearch = ref('');
+        const opsSurgeonFilter = ref('');
+        const opsProcFilter = ref('');
+        const opsDrainFilter = ref('');
+        const apptSearch = ref('');
+
+        // Action Forms state templates
+        const newOp = ref({ PatientID: '', Age: '', OperationDate: new Date().toISOString().split('T')[0], Procedure: '', Surgeon: '', DrainPlaced: false, Notes: '' });
+        const newComp = ref({ PatientID: '', Complication: '', Grade: 'I', DateDetected: new Date().toISOString().split('T')[0], Management: '' });
+        const newAppt = ref({ PatientID: '', Date: new Date().toISOString().split('T')[0], Time: '', Type: 'Wound check', Notes: '' });
+        
+        // Modal Editing Form states
+        const opForm = ref({ _row: null, PatientID: '', oldPatientID: '', Age: '', OperationDate: '', Procedure: '', Surgeon: '', DrainPlaced: false, Notes: '' });
+        const compForm = ref({ _row: null, PatientID: '', Complication: '', Grade: 'I', DateDetected: '', Management: '', Resolved: false });
+        const configForm = ref({ DrainAlertDays: 7, FU1: 1, FU2: 3, FU3: 6, FU4: 12 });
+
+        // Load data on start
+        const loadAllData = () => {
+          loading.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              loading.value = false;
+              // Pre-fill setup parameters form
+              configForm.value = { ...response.config };
+              // Set defaults for dropdowns
+              if (response.lists.procedures.length) newOp.value.Procedure = response.lists.procedures[0];
+              if (response.lists.complications.length) newComp.value.Complication = response.lists.complications[0];
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message || 'Sheet database request failed.', true);
+              loading.value = false;
+            })
+            .getAllData();
+        };
+
+        onMounted(() => {
+          // Verify if running in Google Apps Script context
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            loadAllData();
+          } else {
+            // Mock DB for offline local environment
+            showToast('Apps Script context not detected — please test inside your Spreadsheet web app container.', true);
+          }
+        });
+
+        const showToast = (message, isError = false) => {
+          toast.value = { message, isError };
+          setTimeout(() => { toast.value = null; }, 3500);
+        };
+
+        const refreshAll = () => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Sheets database successfully synchronized! ✓');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .getAllData();
+        };
+
+        const handleTabChange = (tabId) => {
+          activeTab.value = tabId;
+          mobileMenuOpen.value = false;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        const jumpToCalendarDate = (dateStr) => {
+          apptSearch.value = dateStr;
+          handleTabChange('appt');
+        };
+
+        const getOpDetails = (pid) => {
+          if (!db.value) return null;
+          return db.value.operations.find(o => o.PatientID.toString().toLowerCase() === pid.toString().toLowerCase()) || null;
+        };
+
+        const formatDate = (dateStr) => {
+          if (!dateStr) return '—';
+          try {
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+              const d = new Date(parts[0], parts[1] - 1, parts[2]);
+              return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+            }
+          } catch(e) {}
+          return dateStr;
+        };
+
+        // --------------------------------------------- COMPUTED AGGREGATE METRICS
+        const activeDrainsCount = computed(() => {
+          if (!db.value) return 0;
+          return db.value.operations.filter(o => o.DrainPlaced === 'Yes' && !db.value.drains.some(d => d.PatientID === o.PatientID)).length;
+        });
+
+        const overdueDrainsCount = computed(() => {
+          if (!db.value) return 0;
+          const limit = db.value.config.DrainAlertDays;
+          return db.value.operations.filter(o => {
+            if (o.DrainPlaced !== 'Yes') return false;
+            const removed = db.value.drains.some(d => d.PatientID === o.PatientID);
+            if (removed) return false;
+            
+            const opDate = new Date(o.OperationDate);
+            const days = Math.floor((Date.now() - opDate) / (1000 * 60 * 60 * 24));
+            return days > limit;
+          }).length;
+        });
+
+        const openComplicationsCount = computed(() => {
+          if (!db.value) return 0;
+          return db.value.complications.filter(c => c.Resolved !== 'Yes').length;
+        });
+
+        const upcomingApptsCount = computed(() => {
+          if (!db.value) return 0;
+          const today = new Date();
+          const limit = new Date();
+          limit.setDate(today.getDate() + 14);
+
+          return db.value.appointments.filter(a => {
+            const d = new Date(a.Date);
+            return d >= today && d <= limit && a.Status === 'Scheduled';
+          }).length;
+        });
+
+        const dashDrains = computed(() => {
+          if (!db.value) return [];
+          const limit = db.value.config.DrainAlertDays;
+          return db.value.operations
+            .filter(o => o.DrainPlaced === 'Yes' && !db.value.drains.some(d => d.PatientID === o.PatientID))
+            .map(o => {
+              const opDate = new Date(o.OperationDate);
+              const days = Math.floor((Date.now() - opDate) / (1000 * 60 * 60 * 24));
+              return {
+                PatientID: o.PatientID,
+                Procedure: o.Procedure,
+                OperationDate: o.OperationDate,
+                days: days > 0 ? days : 0,
+                isOverdue: days > limit
+              };
+            });
+        });
+
+        const dashAppts = computed(() => {
+          if (!db.value) return [];
+          const today = new Date();
+          return db.value.appointments
+            .filter(a => new Date(a.Date) >= today && a.Status === 'Scheduled')
+            .sort((a,b) => new Date(a.Date) - new Date(b.Date))
+            .slice(0, 5);
+        });
+
+        // --------------------------------------------- TAB FILTER COMPUTEDS
+        const filteredOperations = computed(() => {
+          if (!db.value) return [];
+          return db.value.operations.filter(o => {
+            const matchSearch = o.PatientID.toLowerCase().includes(opsSearch.value.toLowerCase());
+            const matchSurgeon = !opsSurgeonFilter.value || o.Surgeon === opsSurgeonFilter.value;
+            const matchProc = !opsProcFilter.value || o.Procedure === opsProcFilter.value;
+            const matchDrain = !opsDrainFilter.value || o.DrainPlaced === opsDrainFilter.value;
+            return matchSearch && matchSurgeon && matchProc && matchDrain;
+          });
+        });
+
+        const filteredAppointments = computed(() => {
+          if (!db.value) return [];
+          return db.value.appointments.filter(a => {
+            const term = apptSearch.value.toLowerCase();
+            return a.PatientID.toLowerCase().includes(term) || a.Type.toLowerCase().includes(term) || a.Date.includes(term);
+          }).sort((a, b) => new Date(b.Date) - new Date(a.Date));
+        });
+
+        const drainsList = computed(() => {
+          if (!db.value) return [];
+          const limit = db.value.config.DrainAlertDays;
+          return db.value.operations
+            .filter(o => o.DrainPlaced === 'Yes')
+            .map(o => {
+              const rRecord = db.value.drains.find(d => d.PatientID === o.PatientID);
+              const isRemoved = !!rRecord;
+              
+              const opDate = new Date(o.OperationDate);
+              const end = isRemoved ? new Date(rRecord.RemovedDate) : new Date();
+              const days = Math.floor((end - opDate) / (1000 * 60 * 60 * 24));
+              
+              return {
+                PatientID: o.PatientID,
+                Procedure: o.Procedure,
+                OperationDate: o.OperationDate,
+                isRemoved,
+                RemovedDate: rRecord ? rRecord.RemovedDate : '',
+                RemovedBy: rRecord ? rRecord.RemovedBy : '',
+                days: days > 0 ? days : 0,
+                isOverdue: !isRemoved && days > limit
+              };
+            });
+        });
+
+        // --------------------------------------------- DATABASE CORE MUTATIONS
+        const handleAddOperation = () => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Intake case recorded in Sheets! ✓');
+              // Clear new form
+              newOp.value = { PatientID: '', Age: '', OperationDate: new Date().toISOString().split('T')[0], Procedure: response.lists.procedures[0], Surgeon: response.lists.surgeons[0], DrainPlaced: false, Notes: '' };
+              handleTabChange('ops');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .addOperation(newOp.value);
+        };
+
+        const openEditOperationModal = (op) => {
+          editingOperation.value = op;
+          opForm.value = {
+            _row: op._row,
+            PatientID: op.PatientID,
+            oldPatientID: op.PatientID,
+            Age: op.Age,
+            OperationDate: op.OperationDate,
+            Procedure: op.Procedure,
+            Surgeon: op.Surgeon,
+            DrainPlaced: op.DrainPlaced === 'Yes',
+            Notes: op.Notes
+          };
+        };
+
+        const handleUpdateOperation = () => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              editingOperation.value = null;
+              showToast('Case updated in spreadsheet! ✓');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .updateOperation(opForm.value);
+        };
+
+        const handleDeleteOperation = () => {
+          if (!confirm('Are you absolutely sure you want to permanently delete ' + opForm.value.PatientID + ' and all historical follow-ups, appointments, and logs? This is non-reversible.')) return;
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              editingOperation.value = null;
+              selectedPid.value = null;
+              showToast('Patient record deleted successfully.');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .deleteOperation(opForm.value.PatientID);
+        };
+
+        const handleMarkDrainRemoved = (pid) => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Drain marked removed.');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .removeDrain(pid);
+        };
+
+        const handleUndoDrainRemoval = (pid) => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Drain removal undone. Back in situ.');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .undoDrain(pid);
+        };
+
+        const handleAddComplication = () => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Adverse complication event logged.');
+              newComp.value = { PatientID: '', Complication: response.lists.complications[0], Grade: 'I', DateDetected: new Date().toISOString().split('T')[0], Management: '' };
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .addComplication(newComp.value);
+        };
+
+        const openEditComplicationModal = (c) => {
+          editingComplication.value = c;
+          compForm.value = {
+            _row: c._row,
+            PatientID: c.PatientID,
+            Complication: c.Complication,
+            Grade: c.Grade,
+            DateDetected: c.DateDetected,
+            Management: c.Management,
+            Resolved: c.Resolved === 'Yes'
+          };
+        };
+
+        const handleUpdateComplication = () => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              editingComplication.value = null;
+              showToast('Complication log updated.');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .updateComplication(compForm.value);
+        };
+
+        const handleDeleteComplication = () => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              editingComplication.value = null;
+              showToast('Complication record deleted.');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .deleteComplication(compForm.value._row);
+        };
+
+        const handleResolveComplication = (row) => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Complication marked resolved. ✓');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .resolveComplication(row);
+        };
+
+        const handleSetFollowUp = (PatientID, field, value) => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Milestone follow-up saved.');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .setFollowUp(PatientID, field, value);
+        };
+
+        const handleToggleCheckItem = (PatientID, item, done) => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .toggleCheckItem(PatientID, item, done);
+        };
+
+        const handleAddAppointment = () => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Clinic review scheduled.');
+              newAppt.value = { PatientID: '', Date: new Date().toISOString().split('T')[0], Time: '', Type: 'Wound check', Notes: '' };
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .addAppointment(newAppt.value);
+        };
+
+        const handleSetAppointmentStatus = (row, status) => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Appointment status changed.');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .setAppointmentStatus(row, status);
+        };
+
+        const handleDeleteAppointment = (row) => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Appointment cancelled.');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .deleteAppointment(row);
+        };
+
+        const handleSaveConfig = () => {
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Configurations saved successfully! ✓');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .saveConfig(configForm.value);
+        };
+
+        // --------------------------------------------- MASTER LISTS MANAGEMENT
+        const getListString = (lType) => {
+          if (!db.value) return '';
+          let arr = [];
+          if (lType === 'surgeons') arr = db.value.lists.surgeons;
+          else if (lType === 'procedures') arr = db.value.lists.procedures;
+          else if (lType === 'complications') arr = db.value.lists.complications;
+          else if (lType === 'checklist') arr = db.value.lists.checklistItems;
+          return arr.join(', ');
+        };
+
+        const saveMasterListFromInput = (lType) => {
+          const inputEl = document.getElementById('list-input-' + lType);
+          if (!inputEl) return;
+          const items = inputEl.value.split(',').map(item => item.trim()).filter(Boolean);
+          
+          busy.value = true;
+          google.script.run
+            .withSuccessHandler((response) => {
+              db.value = response;
+              busy.value = false;
+              showToast('Master ' + lType + ' list updated!');
+            })
+            .withFailureHandler((err) => {
+              showToast(err.message, true);
+              busy.value = false;
+            })
+            .saveList(lType, items);
+        };
+
+        // --------------------------------------------- BACKUP RESTORE
+        const handleFileBackupUpload = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            try {
+              const jsonString = evt.target.result;
+              // Validate JSON basic
+              const parsed = JSON.parse(jsonString);
+              if (!parsed.operations || !parsed.complications) throw new Error();
+
+              if (!confirm('This will wipe all existing spreadsheet data and replace them with backup items. Proceed?')) return;
+
+              busy.value = true;
+              google.script.run
+                .withSuccessHandler((response) => {
+                  db.value = response;
+                  busy.value = false;
+                  showToast('Database restoration complete! ✓');
+                })
+                .withFailureHandler((err) => {
+                  showToast(err.message, true);
+                  busy.value = false;
+                })
+                .importBackupFromJSON(jsonString);
+            } catch(err) {
+              showToast('Invalid JSON Backup file format.', true);
+            }
+          };
+          reader.readAsText(file);
+        };
+
+        // --------------------------------------------- TIMELINE DRAWER HELPERS
+        const drawerOp = computed(() => {
+          if (!selectedPid.value || !db.value) return null;
+          return db.value.operations.find(o => o.PatientID.toString().toLowerCase() === selectedPid.value.toString().toLowerCase()) || null;
+        });
+
+        const drawerAppts = computed(() => {
+          if (!selectedPid.value || !db.value) return [];
+          return db.value.appointments.filter(a => a.PatientID.toString().toLowerCase() === selectedPid.value.toString().toLowerCase());
+        });
+
+        const drawerDrainRemoval = computed(() => {
+          if (!selectedPid.value || !db.value) return null;
+          return db.value.drains.find(d => d.PatientID.toString().toLowerCase() === selectedPid.value.toString().toLowerCase()) || null;
+        });
+
+        const drawerComps = computed(() => {
+          if (!selectedPid.value || !db.value) return [];
+          return db.value.complications.filter(c => c.PatientID.toString().toLowerCase() === selectedPid.value.toString().toLowerCase());
+        });
+
+        const openTimelineDrawer = (pid) => {
+          selectedPid.value = pid;
+        };
+
+        const openEditFromDrawer = (op) => {
+          selectedPid.value = null;
+          openEditOperationModal(op);
+        };
+
+        const isChecklistDone = (pid, item) => {
+          if (!db.value) return false;
+          return db.value.checks.some(c => c.PatientID.toString().toLowerCase() === pid.toString().toLowerCase() && c.Item === item);
+        };
+
+        const getDrawerDrainInSituDays = () => {
+          const op = drawerOp.value;
+          if (!op) return 0;
+          const rRecord = drawerDrainRemoval.value;
+          const opDate = new Date(op.OperationDate);
+          const end = rRecord ? new Date(rRecord.RemovedDate) : new Date();
+          const days = Math.floor((end - opDate) / (1000 * 60 * 60 * 24));
+          return days > 0 ? days : 0;
+        };
+
+        // --------------------------------------------- MILESTONE CALCULATORS
+        const addMonths = (dateStr, months) => {
+          if (!dateStr) return null;
+          try {
+            const parts = dateStr.split('-');
+            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+            d.setMonth(d.getMonth() + months);
+            return d;
+          } catch(e){}
+          return null;
+        };
+
+        const getMilestoneDueDate = (mKey, opDateStr) => {
+          if (!db.value || !opDateStr) return '—';
+          const monthsMap = { M1: db.value.config.FU1, M3: db.value.config.FU2, M6: db.value.config.FU3, M12: db.value.config.FU4 };
+          const months = monthsMap[mKey];
+          const due = addMonths(opDateStr, months);
+          return due ? due.toLocaleDateString(undefined, { year: 'numeric', month: 'short' }) : '—';
+        };
+
+        const isMilestoneLate = (mKey, opDateStr) => {
+          if (!db.value || !opDateStr) return false;
+          const monthsMap = { M1: db.value.config.FU1, M3: db.value.config.FU2, M6: db.value.config.FU3, M12: db.value.config.FU4 };
+          const months = monthsMap[mKey];
+          const due = addMonths(opDateStr, months);
+          if (!due) return false;
+          return new Date() > due;
+        };
+
+        const getMilestoneColorClass = (val, mKey, opDateStr) => {
+          const late = isMilestoneLate(mKey, opDateStr);
+          if (late && val === '—') return 'text-rose-300 border-rose-500/20 bg-rose-950/40';
+          if (val === '—') return 'text-white/40 border-white/10';
+          if (val === 'Good') return 'text-emerald-300 border-emerald-500/20 bg-emerald-950/40';
+          if (val === 'Issue noted') return 'text-amber-300 border-amber-500/20 bg-amber-950/40';
+          if (val === 'Concern — review') return 'text-amber-400 border-amber-500/30 bg-amber-950/50';
+          return 'text-rose-300 border-rose-500/20 bg-rose-950/40'; // Missed
+        };
+
+        return {
+          db, loading, busy, activeTab, mobileMenuOpen, toast, navItems,
+          selectedPid, editingOperation, editingComplication,
+          opsSearch, opsSurgeonFilter, opsProcFilter, opsDrainFilter, apptSearch,
+          newOp, newComp, newAppt, opForm, compForm, configForm,
+          refreshAll, handleTabChange, jumpToCalendarDate, getOpDetails, formatDate,
+          activeDrainsCount, overdueDrainsCount, openComplicationsCount, upcomingApptsCount,
+          dashDrains, dashAppts, filteredOperations, filteredAppointments, drainsList,
+          handleAddOperation, openEditOperationModal, handleUpdateOperation, handleDeleteOperation,
+          handleMarkDrainRemoved, handleUndoDrainRemoval, handleAddComplication, openEditComplicationModal,
+          handleUpdateComplication, handleDeleteComplication, handleResolveComplication,
+          handleSetFollowUp, handleToggleCheckItem, handleAddAppointment, handleSetAppointmentStatus,
+          handleDeleteAppointment, handleSaveConfig, getListString, saveMasterListFromInput,
+          handleFileBackupUpload, drawerOp, drawerAppts, drawerDrainRemoval, drawerComps,
+          openTimelineDrawer, openEditFromDrawer, isChecklistDone, getDrawerDrainInSituDays,
+          getMilestoneDueDate, isMilestoneLate, getMilestoneColorClass
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --color-brand-bg: var(--brand-bg);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-primary-light: var(--brand-primary-light);
+  --color-brand-primary-glow: var(--brand-primary-glow);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-secondary-light: var(--brand-secondary-light);
+}
+
+:root {
+  --brand-bg: #0A2E2A;
+  --brand-primary: #10b981;
+  --brand-primary-hover: #059669;
+  --brand-primary-light: #34d399;
+  --brand-primary-glow: rgba(16, 185, 129, 0.15);
+  --brand-secondary: #14b8a6;
+  --brand-secondary-light: #2dd4bf;
+}
+
+.theme-emerald {
+  --brand-bg: #0A2E2A;
+  --brand-primary: #10b981;
+  --brand-primary-hover: #059669;
+  --brand-primary-light: #34d399;
+  --brand-primary-glow: rgba(16, 185, 129, 0.15);
+  --brand-secondary: #14b8a6;
+  --brand-secondary-light: #2dd4bf;
+}
+
+.theme-teal {
+  --brand-bg: #042528;
+  --brand-primary: #0d9488;
+  --brand-primary-hover: #0f766e;
+  --brand-primary-light: #2dd4bf;
+  --brand-primary-glow: rgba(13, 148, 136, 0.15);
+  --brand-secondary: #06b6d4;
+  --brand-secondary-light: #22d3ee;
+}
+
+.theme-indigo {
+  --brand-bg: #0a1128;
+  --brand-primary: #6366f1;
+  --brand-primary-hover: #4f46e5;
+  --brand-primary-light: #818cf8;
+  --brand-primary-glow: rgba(99, 102, 241, 0.15);
+  --brand-secondary: #3b82f6;
+  --brand-secondary-light: #60a5fa;
+}
+
+.theme-rose {
+  --brand-bg: #1e090f;
+  --brand-primary: #f43f5e;
+  --brand-primary-hover: #e11d48;
+  --brand-primary-light: #fb7185;
+  --brand-primary-glow: rgba(244, 63, 94, 0.15);
+  --brand-secondary: #ec4899;
+  --brand-secondary-light: #f472b6;
+}
+
+.theme-violet {
+  --brand-bg: #110920;
+  --brand-primary: #8b5cf6;
+  --brand-primary-hover: #7c3aed;
+  --brand-primary-light: #a78bfa;
+  --brand-primary-glow: rgba(139, 92, 246, 0.15);
+  --brand-secondary: #d946ef;
+  --brand-secondary-light: #f5d0fe;
+}
+
+.theme-amber {
+  --brand-bg: #1f1103;
+  --brand-primary: #f59e0b;
+  --brand-primary-hover: #d97706;
+  --brand-primary-light: #fcd34d;
+  --brand-primary-glow: rgba(245, 158, 11, 0.15);
+  --brand-secondary: #f97316;
+  --brand-secondary-light: #ffedd5;
+}
+
+.theme-slate {
+  --brand-bg: #18181b;
+  --brand-primary: #a1a1aa;
+  --brand-primary-hover: #71717a;
+  --brand-primary-light: #e4e4e7;
+  --brand-primary-glow: rgba(161, 161, 170, 0.15);
+  --brand-secondary: #d4d4d8;
+  --brand-secondary-light: #f4f4f5;
+}
+
+.theme-blue {
+  --brand-bg: #031424;
+  --brand-primary: #3b82f6;
+  --brand-primary-hover: #2563eb;
+  --brand-primary-light: #60a5fa;
+  --brand-primary-glow: rgba(59, 130, 246, 0.15);
+  --brand-secondary: #06b6d4;
+  --brand-secondary-light: #67e8f9;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--brand-bg);
+  color: #ffffff;
+  transition: background-color 0.3s ease;
+}
+
+/* Base custom designs */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  .print\:bg-white {
+    background-color: #ffffff !important;
+  }
+  .print\:text-black {
+    color: #000000 !important;
+  }
+  .print\:p-0 {
+    padding: 0 !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+}
