@@ -3,7 +3,13 @@ export interface Operation {
   PatientID: string;
   Age: number | "";
   OperationDate: string;
+  /** Selected procedures for this case. */
+  Procedures: string[];
+  /** Surgeons involved in this case. */
+  Surgeons: string[];
+  /** Derived, comma-joined display string kept in sync by the server. */
   Procedure: string;
+  /** Derived, comma-joined display string kept in sync by the server. */
   Surgeon: string;
   DrainPlaced: "Yes" | "No";
   Notes: string;

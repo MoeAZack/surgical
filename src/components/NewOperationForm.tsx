@@ -1,9 +1,17 @@
 import React, { useState } from "react";
 import { DBState } from "../types";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, X, Plus, Stethoscope, AlertTriangle } from "lucide-react";
 import { suggestNextPatientID } from "../utils";
 import { translations } from "../translations";
 import { VoiceInputButton } from "./VoiceInputButton";
+import { ChipMultiSelect } from "./ChipMultiSelect";
+
+interface InlineComplication {
+  Complication: string;
+  Grade: string;
+  DateDetected: string;
+  Management: string;
+}
 
 interface NewOperationFormProps {
   db: DBState;
@@ -12,212 +20,125 @@ interface NewOperationFormProps {
     PatientID: string;
     Age: number | "";
     OperationDate: string;
-    Procedure: string;
-    Surgeon: string;
+    Procedures: string[];
+    Surgeons: string[];
     DrainPlaced: boolean;
     Notes: string;
+    complications?: InlineComplication[];
   }) => Promise<void>;
-  onQuickAddList: (kind: "procedures" | "surgeons", selectId: string) => Promise<string | undefined>;
+  onQuickAddList: (kind: "procedures" | "surgeons" | "complications", selectId: string) => Promise<string | undefined>;
 }
 
 export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, onAddOperation, onQuickAddList }) => {
-  const [pid, setPid] = useState("");
+  const t = translations[lang];
+  const isRTL = lang === "ar";
+  const listConfig = db.lists;
+
+  const [pid, setPid] = useState(() => suggestNextPatientID(db.operations));
   const [age, setAge] = useState<number | "">("");
   const [opDate, setOpDate] = useState(new Date().toISOString().split("T")[0]);
-  const [procedure, setProcedure] = useState("");
-  const [surgeon, setSurgeon] = useState("");
+  const [procedures, setProcedures] = useState<string[]>([]);
+  const [surgeons, setSurgeons] = useState<string[]>([]);
   const [drain, setDrain] = useState(false);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Validation states
+  // Inline complications logged during intake
+  const [comps, setComps] = useState<InlineComplication[]>([]);
+  const [compOpen, setCompOpen] = useState(false);
+  const [compType, setCompType] = useState(listConfig.complications[0] || "Seroma");
+  const [compGrade, setCompGrade] = useState("I");
+  const [compMgmt, setCompMgmt] = useState("");
+
+  // Validation
   const [pidError, setPidError] = useState("");
-  const [ageError, setAgeError] = useState("");
   const [opDateError, setOpDateError] = useState("");
 
-  const listConfig = db.lists;
-  const t = translations[lang];
-
-  // Real-time Patient ID validation
-  const handlePidChange = (value: string) => {
-    setPid(value);
-    const cleaned = value.trim().toUpperCase();
-    if (!cleaned) {
-      setPidError(isRTL ? "معرف المريض مطلوب" : "Patient ID is required.");
-      return;
-    }
-    const idPattern = /^[A-Z0-9-]+$/;
-    if (!idPattern.test(cleaned)) {
-      setPidError(isRTL ? "معرف المريض يجب أن يحتوي على أحرف وأرقام وشرطات فقط" : "Patient ID must contain only alphanumeric characters and hyphens.");
-      return;
-    }
-    const isDuplicate = db.operations.some(op => op.PatientID.toUpperCase() === cleaned);
-    if (isDuplicate) {
-      setPidError(isRTL ? "معرف المريض هذا مسجل بالفعل في سجلات العيادة" : "This Patient ID already exists in clinical records.");
-      return;
-    }
-    setPidError("");
+  const addChip = (value: string, list: string[], setter: (v: string[]) => void) => {
+    const v = value.trim();
+    if (!v) return;
+    if (!list.some((x) => x.toLowerCase() === v.toLowerCase())) setter([...list, v]);
+  };
+  const removeChip = (value: string, list: string[], setter: (v: string[]) => void) => {
+    setter(list.filter((x) => x !== value));
   };
 
-  // Real-time Age validation
-  const handleAgeChange = (val: string) => {
-    setAge(val ? Number(val) : "");
-    if (val) {
-      const num = Number(val);
-      if (isNaN(num) || num < 1 || num > 120) {
-        setAgeError(isRTL ? "العمر يجب أن يكون بين 1 و 120 سنة" : "Age must be between 1 and 120.");
-        return;
-      }
-    }
-    setAgeError("");
-  };
-
-  // Real-time Date validation
   const handleDateChange = (val: string) => {
     setOpDate(val);
     if (!val) {
       setOpDateError(isRTL ? "تاريخ العملية مطلوب" : "Operation date is required.");
       return;
     }
-    const selectedDate = new Date(val);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    if (selectedDate > tomorrow) {
-      setOpDateError(isRTL ? "لا يمكن لـ تاريخ العملية أن يكون في المستقبل البعيد" : "Operation date cannot be set in the future.");
+    if (new Date(val) > tomorrow) {
+      setOpDateError(isRTL ? "لا يمكن أن يكون التاريخ في المستقبل" : "Operation date cannot be in the future.");
       return;
     }
     setOpDateError("");
   };
 
-  // Auto-suggest next Patient ID on mount
-  React.useEffect(() => {
-    if (!pid && db.operations) {
-      const nextId = suggestNextPatientID(db.operations);
-      setPid(nextId);
-    }
-  }, [db.operations, pid]);
+  const addComplicationRow = () => {
+    if (!compType) return;
+    setComps((prev) => [
+      ...prev,
+      { Complication: compType, Grade: compGrade, DateDetected: opDate, Management: compMgmt.trim() }
+    ]);
+    setCompMgmt("");
+    setCompGrade("I");
+    setCompOpen(false);
+  };
 
-  // Sync state defaults
-  React.useEffect(() => {
-    if (listConfig.procedures && listConfig.procedures.length > 0 && !procedure) {
-      setProcedure(listConfig.procedures[0]);
-    }
-  }, [listConfig.procedures, procedure]);
-
-  React.useEffect(() => {
-    if (listConfig.surgeons && listConfig.surgeons.length > 0 && !surgeon) {
-      setSurgeon(listConfig.surgeons[0]);
-    }
-  }, [listConfig.surgeons, surgeon]);
+  const resetForm = (nextOps: DBState["operations"]) => {
+    setPid(suggestNextPatientID(nextOps));
+    setAge("");
+    setProcedures([]);
+    setSurgeons([]);
+    setDrain(false);
+    setNotes("");
+    setComps([]);
+    setPidError("");
+    setOpDateError("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Final strict validation check
-    const isDuplicate = db.operations.some(op => op.PatientID.toUpperCase() === pid.trim().toUpperCase());
-    const idPattern = /^[A-Z0-9-]+$/i;
-    const isIdInvalid = !idPattern.test(pid.trim());
-    const isAgeInvalid = age !== "" && (age < 1 || age > 120);
-    const selectedDate = new Date(opDate);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const isDateInvalid = !opDate || selectedDate > tomorrow;
-
-    if (!pid.trim() || isDuplicate || isIdInvalid || isAgeInvalid || isDateInvalid) {
-      // Set correct errors
-      if (!pid.trim()) setPidError(isRTL ? "معرف المريض مطلوب" : "Patient ID is required.");
-      else if (isIdInvalid) setPidError(isRTL ? "معرف المريض غير صالح" : "Patient ID is invalid.");
-      else if (isDuplicate) setPidError(isRTL ? "معرف المريض مسجل مسبقاً" : "Patient ID already exists.");
-
-      if (isAgeInvalid) setAgeError(isRTL ? "عمر غير صالح" : "Age must be 1 to 120.");
-      if (isDateInvalid) setOpDateError(isRTL ? "تاريخ غير صالح" : "Date cannot be in the future.");
+    const cleanedPid = pid.trim().toUpperCase();
+    if (!cleanedPid) {
+      setPidError(isRTL ? "معرف المريض مطلوب" : "Patient ID is required.");
+      return;
+    }
+    if (!/^[A-Z0-9-]+$/.test(cleanedPid)) {
+      setPidError(isRTL ? "أحرف وأرقام وشرطات فقط" : "Only letters, numbers and hyphens.");
+      return;
+    }
+    if (opDateError || !opDate) {
+      if (!opDate) setOpDateError(isRTL ? "تاريخ العملية مطلوب" : "Operation date is required.");
       return;
     }
 
     setSubmitting(true);
     try {
+      const payloadOps = [...db.operations, { PatientID: cleanedPid } as any];
       await onAddOperation({
-        PatientID: pid.trim().toUpperCase(),
+        PatientID: cleanedPid,
         Age: age,
         OperationDate: opDate,
-        Procedure: procedure,
-        Surgeon: surgeon,
+        Procedures: procedures,
+        Surgeons: surgeons,
         DrainPlaced: drain,
-        Notes: notes
+        Notes: notes,
+        complications: comps
       });
-      // Reset ID after successful submission to next incremented ID
-      const updatedOps = [
-        ...db.operations,
-        { PatientID: pid.trim().toUpperCase(), Age: age, OperationDate: opDate, Procedure: procedure, Surgeon: surgeon, DrainPlaced: drain ? "Yes" : "No", Notes: notes } as any
-      ];
-      setPid(suggestNextPatientID(updatedOps));
-      setAge("");
-      setNotes("");
-      setDrain(false);
-      setPidError("");
-      setAgeError("");
-      setOpDateError("");
+      resetForm(payloadOps);
     } catch {
-      // toast is already fired
+      // toast already fired by the handler
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleSaveDraft = () => {
-    if (!pid.trim()) {
-      setPidError(isRTL ? "يجب إدخال معرف المريض لحفظ مسودة" : "Patient ID is required to save a draft.");
-      return;
-    }
-
-    try {
-      const stored = localStorage.getItem("clinical_drafts");
-      const drafts = stored ? JSON.parse(stored) : [];
-
-      const newDraft = {
-        id: "draft_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9),
-        type: "operation",
-        createdAt: new Date().toISOString(),
-        data: {
-          PatientID: pid.trim().toUpperCase(),
-          Age: age,
-          OperationDate: opDate,
-          Procedure: procedure || listConfig.procedures[0],
-          Surgeon: surgeon || listConfig.surgeons[0],
-          DrainPlaced: drain,
-          Notes: notes
-        }
-      };
-
-      drafts.push(newDraft);
-      localStorage.setItem("clinical_drafts", JSON.stringify(drafts));
-
-      // Reset fields
-      setAge("");
-      setNotes("");
-      setDrain(false);
-      
-      // Flash Toast
-      const toastEvent = new CustomEvent("clinical_toast", {
-        detail: { message: t.draftSavedSuccess, isError: false }
-      });
-      window.dispatchEvent(toastEvent);
-
-      // Auto-suggest next Patient ID
-      const updatedOps = [
-        ...db.operations,
-        { PatientID: pid.trim().toUpperCase() } as any
-      ];
-      setPid(suggestNextPatientID(updatedOps));
-      setPidError("");
-      setAgeError("");
-      setOpDateError("");
-    } catch (e) {
-      console.error("Failed to save draft", e);
-    }
-  };
-
-  const isRTL = lang === "ar";
+  const gradeOptions = ["I", "II", "IIIa", "IIIb", "IVa", "IVb", "V"];
 
   return (
     <div className="space-y-6 animate-fade-in" id="new-operation-view" dir={isRTL ? "rtl" : "ltr"}>
@@ -226,174 +147,224 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
         <p className="text-sm text-white/60 mt-1">{t.newCaseSub}</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
-        <h3 className={`font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-1.5 mb-6 ${isRTL ? "flex-row-reverse" : "flex-row"}`}>
+      <form onSubmit={handleSubmit} className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl space-y-6">
+        <h3 className={`font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-1.5 ${isRTL ? "flex-row-reverse" : "flex-row"}`}>
           <PlusCircle className="w-4.5 h-4.5 text-brand-primary" /> {t.formIntakeTitle}
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Patient ID */}
           <div>
-            <label className={`block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2 ${isRTL ? "text-right" : "text-left"}`}>
-              {t.patientId}
-            </label>
+            <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">{t.patientId}</label>
             <input
               type="text"
               placeholder={t.patientIdPlaceholder}
               value={pid}
-              onChange={(e) => handlePidChange(e.target.value)}
-              className={`w-full py-2 px-3 border ${pidError ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-brand-primary"} rounded-xl text-sm focus:outline-none bg-white/5 font-semibold text-white uppercase placeholder-white/30`}
+              onChange={(e) => {
+                setPid(e.target.value);
+                if (pidError) setPidError("");
+              }}
+              className={`w-full py-2 px-3 border ${pidError ? "border-rose-500" : "border-white/10 focus:border-brand-primary"} rounded-xl text-sm focus:outline-none bg-white/5 font-semibold text-white uppercase placeholder-white/30`}
               required
             />
-            {pidError && (
-              <p className={`text-rose-400 text-xs mt-1.5 font-semibold ${isRTL ? "text-right" : "text-left"}`}>
-                ⚠ {pidError}
-              </p>
-            )}
+            {pidError && <p className="text-rose-400 text-xs mt-1.5 font-semibold">⚠ {pidError}</p>}
           </div>
 
+          {/* Age */}
           <div>
-            <label className={`block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2 ${isRTL ? "text-right" : "text-left"}`}>
-              {t.ageYears}
-            </label>
+            <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">{t.ageYears}</label>
             <input
               type="number"
               min="1"
               max="120"
               placeholder={t.agePlaceholder}
               value={age}
-              onChange={(e) => handleAgeChange(e.target.value)}
-              className={`w-full py-2 px-3 border ${ageError ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-brand-primary"} rounded-xl text-sm focus:outline-none bg-white/5 text-white placeholder-white/30`}
+              onChange={(e) => setAge(e.target.value ? Number(e.target.value) : "")}
+              className="w-full py-2 px-3 border border-white/10 focus:border-brand-primary rounded-xl text-sm focus:outline-none bg-white/5 text-white placeholder-white/30"
             />
-            {ageError && (
-              <p className={`text-rose-400 text-xs mt-1.5 font-semibold ${isRTL ? "text-right" : "text-left"}`}>
-                ⚠ {ageError}
-              </p>
-            )}
           </div>
 
+          {/* Operation date */}
           <div>
-            <label className={`block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2 ${isRTL ? "text-right" : "text-left"}`}>
-              {t.operationDate}
-            </label>
+            <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">{t.operationDate}</label>
             <input
               type="date"
               value={opDate}
               onChange={(e) => handleDateChange(e.target.value)}
-              className={`w-full py-2 px-3 border ${opDateError ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-brand-primary"} rounded-xl text-sm focus:outline-none bg-white/5 text-white`}
+              className={`w-full py-2 px-3 border ${opDateError ? "border-rose-500" : "border-white/10 focus:border-brand-primary"} rounded-xl text-sm focus:outline-none bg-white/5 text-white`}
               required
             />
-            {opDateError && (
-              <p className={`text-rose-400 text-xs mt-1.5 font-semibold ${isRTL ? "text-right" : "text-left"}`}>
-                ⚠ {opDateError}
-              </p>
-            )}
+            {opDateError && <p className="text-rose-400 text-xs mt-1.5 font-semibold">⚠ {opDateError}</p>}
           </div>
+        </div>
 
-          <div>
-            <label className={`block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2 ${isRTL ? "text-right" : "text-left"}`}>
-              {t.procedureLabel}
-            </label>
-            <div className={`flex gap-1.5 ${isRTL ? "flex-row-reverse" : "flex-row"}`}>
-              <select
-                id="f-op-select"
-                value={procedure}
-                onChange={(e) => setProcedure(e.target.value)}
-                className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
-              >
-                {listConfig.procedures.map((p) => (
-                  <option key={p} value={p} className="bg-[#0A2E2A] text-white">
-                    {p}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={async () => {
-                  const added = await onQuickAddList("procedures", "f-op-select");
-                  if (added) setProcedure(added);
-                }}
-                className="py-1 px-2.5 border border-white/10 hover:border-brand-primary text-white/60 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm font-bold cursor-pointer"
-              >
-                +
-              </button>
-            </div>
-          </div>
+        {/* Procedures (multi) */}
+        <ChipMultiSelect
+          label={isRTL ? "العمليات الجراحية (أكثر من واحدة)" : "Procedures (add one or more)"}
+          options={listConfig.procedures}
+          selected={procedures}
+          onAdd={(v) => addChip(v, procedures, setProcedures)}
+          onRemove={(v) => removeChip(v, procedures, setProcedures)}
+          onQuickAdd={async () => {
+            const added = await onQuickAddList("procedures", "");
+            if (added) addChip(added, procedures, setProcedures);
+          }}
+          placeholder={isRTL ? "اختر عملية لإضافتها" : "Select a procedure to add"}
+        />
 
-          <div>
-            <label className={`block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2 ${isRTL ? "text-right" : "text-left"}`}>
-              {t.surgeonLabel}
-            </label>
-            <div className={`flex gap-1.5 ${isRTL ? "flex-row-reverse" : "flex-row"}`}>
-              <select
-                id="f-surgeon-select"
-                value={surgeon}
-                onChange={(e) => setSurgeon(e.target.value)}
-                className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
-              >
-                {listConfig.surgeons.map((s) => (
-                  <option key={s} value={s} className="bg-[#0A2E2A] text-white">
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={async () => {
-                  const added = await onQuickAddList("surgeons", "f-surgeon-select");
-                  if (added) setSurgeon(added);
-                }}
-                className="py-1 px-2.5 border border-white/10 hover:border-brand-primary text-white/60 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm font-bold cursor-pointer"
-              >
-                +
-              </button>
-            </div>
-          </div>
+        {/* Surgeons (multi) */}
+        <ChipMultiSelect
+          label={isRTL ? "الجراحون (أكثر من واحد)" : "Surgeons (add one or more)"}
+          options={listConfig.surgeons}
+          selected={surgeons}
+          onAdd={(v) => addChip(v, surgeons, setSurgeons)}
+          onRemove={(v) => removeChip(v, surgeons, setSurgeons)}
+          onQuickAdd={async () => {
+            const added = await onQuickAddList("surgeons", "");
+            if (added) addChip(added, surgeons, setSurgeons);
+          }}
+          placeholder={isRTL ? "اختر جراحاً لإضافته" : "Select a surgeon to add"}
+          icon={<Stethoscope className="w-3.5 h-3.5 text-brand-primary" />}
+        />
 
+        {/* Drain + Notes */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <label className={`block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2 ${isRTL ? "text-right" : "text-left"}`}>
-              {t.drainPlacedLabel}
-            </label>
+            <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">{t.drainPlacedLabel}</label>
             <select
               value={drain ? "Yes" : "No"}
               onChange={(e) => setDrain(e.target.value === "Yes")}
-              className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
+              className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-brand-bg text-white"
             >
-              <option value="No" className="bg-[#0A2E2A] text-white">No</option>
-              <option value="Yes" className="bg-[#0A2E2A] text-white">Yes</option>
+              <option value="No" className="bg-brand-bg text-white">No</option>
+              <option value="Yes" className="bg-brand-bg text-white">Yes</option>
             </select>
           </div>
-
-          <div className="md:col-span-3">
+          <div className="md:col-span-2">
             <div className="flex items-center justify-between mb-2">
-              <label className={`block text-[10px] font-bold text-white/40 uppercase tracking-wider ${isRTL ? "text-right" : "text-left"}`}>
-                {t.notesLabel}
-              </label>
-              <VoiceInputButton
-                lang={lang}
-                onTranscript={(text) => setNotes((prev) => prev ? prev + " " + text : text)}
-              />
+              <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider">{t.notesLabel}</label>
+              <VoiceInputButton lang={lang} onTranscript={(text) => setNotes((prev) => (prev ? prev + " " + text : text))} />
             </div>
             <textarea
               placeholder={t.notesPlaceholder}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full py-2.5 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white placeholder-white/30 min-h-[90px]"
+              className="w-full py-2.5 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white placeholder-white/30 min-h-[70px]"
             />
           </div>
         </div>
 
-        <div className={`flex flex-col sm:flex-row gap-3 pt-4 mt-6 border-t border-white/10 ${isRTL ? "sm:justify-start" : "sm:justify-end"}`}>
-          <button
-            type="button"
-            onClick={handleSaveDraft}
-            className="bg-white/10 hover:bg-white/15 text-white py-2.5 px-5 rounded-xl font-semibold text-sm transition-colors cursor-pointer border border-white/10 text-center"
-          >
-            📂 {t.saveAsDraftBtn}
-          </button>
+        {/* Inline complications */}
+        <div className="border border-white/10 rounded-2xl p-4 bg-black/10">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+              {isRTL ? "المضاعفات (اختياري)" : "Complications (optional)"}
+            </span>
+            {!compOpen && (
+              <button
+                type="button"
+                onClick={() => setCompOpen(true)}
+                className="text-xs font-semibold text-brand-primary-light hover:text-brand-primary flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> {isRTL ? "إضافة مضاعفة" : "Add complication"}
+              </button>
+            )}
+          </div>
+
+          {comps.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {comps.map((c, i) => (
+                <div key={i} className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs">
+                  <span className="text-white/90 font-semibold">
+                    {c.Complication} <span className="text-white/40 font-mono">· Clavien {c.Grade}</span>
+                    {c.Management ? <span className="text-white/40"> — {c.Management}</span> : null}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setComps(comps.filter((_, idx) => idx !== i))}
+                    className="text-white/40 hover:text-rose-400 p-1 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {compOpen && (
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+              <div className="sm:col-span-1">
+                <label className="block text-[9px] font-bold text-white/40 uppercase tracking-wider mb-1">{isRTL ? "النوع" : "Type"}</label>
+                <div className="flex gap-1">
+                  <select
+                    value={compType}
+                    onChange={(e) => setCompType(e.target.value)}
+                    className="flex-1 py-1.5 px-2 border border-white/10 rounded-lg text-xs focus:outline-none focus:border-brand-primary bg-brand-bg text-white"
+                  >
+                    {listConfig.complications.map((c) => (
+                      <option key={c} value={c} className="bg-brand-bg text-white">{c}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const added = await onQuickAddList("complications", "");
+                      if (added) setCompType(added);
+                    }}
+                    className="px-2 border border-white/10 hover:border-brand-primary text-white/60 hover:text-white rounded-lg bg-white/5 text-xs font-bold cursor-pointer"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold text-white/40 uppercase tracking-wider mb-1">{isRTL ? "الدرجة" : "Grade"}</label>
+                <select
+                  value={compGrade}
+                  onChange={(e) => setCompGrade(e.target.value)}
+                  className="w-full py-1.5 px-2 border border-white/10 rounded-lg text-xs focus:outline-none focus:border-brand-primary bg-brand-bg text-white"
+                >
+                  {gradeOptions.map((g) => (
+                    <option key={g} value={g} className="bg-brand-bg text-white">{g}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="sm:col-span-1">
+                <label className="block text-[9px] font-bold text-white/40 uppercase tracking-wider mb-1">{isRTL ? "الإدارة" : "Management"}</label>
+                <input
+                  type="text"
+                  value={compMgmt}
+                  onChange={(e) => setCompMgmt(e.target.value)}
+                  placeholder={isRTL ? "اختياري" : "optional"}
+                  className="w-full py-1.5 px-2 border border-white/10 rounded-lg text-xs focus:outline-none focus:border-brand-primary bg-white/5 text-white placeholder-white/30"
+                />
+              </div>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={addComplicationRow}
+                  className="flex-1 py-1.5 px-2 bg-brand-primary hover:bg-brand-primary-hover text-slate-950 rounded-lg text-xs font-bold cursor-pointer"
+                >
+                  {isRTL ? "إضافة" : "Add"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCompOpen(false)}
+                  className="py-1.5 px-2 border border-white/10 text-white/50 rounded-lg text-xs cursor-pointer hover:bg-white/5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className={`flex pt-2 border-t border-white/10 ${isRTL ? "justify-start" : "justify-end"}`}>
           <button
             type="submit"
-            disabled={submitting || !!pidError || !!ageError || !!opDateError || !pid.trim()}
-            className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-2.5 px-6 rounded-xl font-semibold text-sm transition-colors cursor-pointer border border-brand-primary/20 shadow-lg text-center"
+            disabled={submitting || !pid.trim() || !!opDateError}
+            className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 text-white py-2.5 px-6 rounded-xl font-semibold text-sm transition-colors cursor-pointer border border-brand-primary/20 shadow-lg"
           >
             {submitting ? t.savingCase : t.saveCaseBtn}
           </button>

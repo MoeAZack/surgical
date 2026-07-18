@@ -108,7 +108,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
 
       {/* Drawer */}
       <aside
-        className={`fixed top-0 bottom-0 w-full max-w-[460px] bg-[#061E1B]/95 backdrop-blur-xl z-50 shadow-2xl overflow-y-auto flex flex-col justify-between border-white/10 text-white ${
+        className={`fixed top-0 bottom-0 w-full max-w-[460px] bg-brand-bg/95 backdrop-blur-xl z-50 shadow-2xl overflow-y-auto flex flex-col justify-between border-white/10 text-white ${
           isRTL ? "left-0 border-r" : "right-0 border-l"
         }`}
         dir={isRTL ? "rtl" : "ltr"}
@@ -260,10 +260,10 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                     <select
                       value={compName}
                       onChange={(e) => setCompName(e.target.value)}
-                      className="w-full py-1.5 px-2 border border-white/10 rounded-lg text-xs bg-[#0A2E2A] text-white"
+                      className="w-full py-1.5 px-2 border border-white/10 rounded-lg text-xs bg-brand-bg text-white"
                     >
                       {db.lists.complications.map((c) => (
-                        <option key={c} value={c} className="bg-[#0A2E2A] text-white">
+                        <option key={c} value={c} className="bg-brand-bg text-white">
                           {c}
                         </option>
                       ))}
@@ -277,10 +277,10 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                       <select
                         value={compGrade}
                         onChange={(e) => setCompGrade(e.target.value)}
-                        className="w-full py-1.5 px-2 border border-white/10 rounded-lg text-xs bg-[#0A2E2A] text-white"
+                        className="w-full py-1.5 px-2 border border-white/10 rounded-lg text-xs bg-brand-bg text-white"
                       >
                         {["I", "II", "IIIa", "IIIb", "IVa", "IVb", "V"].map((g) => (
-                          <option key={g} value={g} className="bg-[#0A2E2A] text-white">
+                          <option key={g} value={g} className="bg-brand-bg text-white">
                             Grade {g}
                           </option>
                         ))}

@@ -133,14 +133,14 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                           <select
                             value={val}
                             onChange={(e) => handleSelectChange(o.PatientID, key, e.target.value)}
-                            className={`w-full text-xs font-semibold py-1 px-2 border rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white ${
+                            className={`w-full text-xs font-semibold py-1 px-2 border rounded-lg focus:outline-none focus:border-brand-primary bg-brand-bg text-white ${
                               isLate
                                 ? "border-rose-500/30 ring-2 ring-rose-500/10 focus:ring-0 text-rose-300 bg-rose-950/40"
                                 : "border-white/10 text-white"
                             }`}
                           >
                             {listConfig.fuStatus.map((st) => (
-                              <option key={st} value={st} className="bg-[#0A2E2A] text-white">
+                              <option key={st} value={st} className="bg-brand-bg text-white">
                                 {st}
                               </option>
                             ))}
@@ -161,7 +161,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                     <select
                       value={f.FinalOutcome}
                       onChange={(e) => handleSelectChange(o.PatientID, "FinalOutcome", e.target.value)}
-                      className={`text-xs font-semibold py-1.5 px-3 border rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white ${
+                      className={`text-xs font-semibold py-1.5 px-3 border rounded-lg focus:outline-none focus:border-brand-primary bg-brand-bg text-white ${
                         f.FinalOutcome === "Success"
                           ? "text-brand-primary-light bg-brand-primary/10 border-brand-primary/20 font-bold"
                           : f.FinalOutcome === "Ongoing"
@@ -170,7 +170,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                       }`}
                     >
                       {listConfig.outcomes.map((out) => (
-                        <option key={out} value={out} className="bg-[#0A2E2A] text-white">
+                        <option key={out} value={out} className="bg-brand-bg text-white">
                           {out}
                         </option>
                       ))}
@@ -231,14 +231,14 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                               <select
                                 value={val}
                                 onChange={(e) => handleSelectChange(o.PatientID, key, e.target.value)}
-                                className={`text-xs font-semibold py-1 px-2.5 border rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white ${
+                                className={`text-xs font-semibold py-1 px-2.5 border rounded-lg focus:outline-none focus:border-brand-primary bg-brand-bg text-white ${
                                   isLate
                                     ? "border-rose-500/30 ring-2 ring-rose-500/10 focus:ring-0 text-rose-300 bg-rose-950/40"
                                     : "border-white/10 text-white"
                                 }`}
                               >
                                 {listConfig.fuStatus.map((st) => (
-                                  <option key={st} value={st} className="bg-[#0A2E2A] text-white">
+                                  <option key={st} value={st} className="bg-brand-bg text-white">
                                     {st}
                                   </option>
                                 ))}
@@ -257,7 +257,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                         <select
                           value={f.FinalOutcome}
                           onChange={(e) => handleSelectChange(o.PatientID, "FinalOutcome", e.target.value)}
-                          className={`text-xs font-semibold py-1.5 px-3 border rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white inline-block ${
+                          className={`text-xs font-semibold py-1.5 px-3 border rounded-lg focus:outline-none focus:border-brand-primary bg-brand-bg text-white inline-block ${
                             f.FinalOutcome === "Success"
                               ? "text-brand-primary-light bg-brand-primary/10 border-brand-primary/20 font-bold"
                               : f.FinalOutcome === "Ongoing"
@@ -266,7 +266,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                           }`}
                         >
                           {listConfig.outcomes.map((out) => (
-                            <option key={out} value={out} className="bg-[#0A2E2A] text-white">
+                            <option key={out} value={out} className="bg-brand-bg text-white">
                               {out}
                             </option>
                           ))}

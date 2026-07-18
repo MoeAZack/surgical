@@ -279,10 +279,10 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                         <select
                           value={a.Status}
                           onChange={(e) => onSetStatus(a.id, e.target.value)}
-                          className="text-[11px] font-semibold py-1 px-2 border border-white/10 rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
+                          className="text-[11px] font-semibold py-1 px-2 border border-white/10 rounded-lg focus:outline-none focus:border-brand-primary bg-brand-bg text-white"
                         >
                           {listConfig.apptStatus.map((status) => (
-                            <option key={status} value={status} className="bg-[#0A2E2A] text-white">
+                            <option key={status} value={status} className="bg-brand-bg text-white">
                               {status}
                             </option>
                           ))}
@@ -382,10 +382,10 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                   <select
                     value={typeInput}
                     onChange={(e) => setTypeInput(e.target.value)}
-                    className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/30 bg-[#0A2E2A] text-white"
+                    className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/30 bg-brand-bg text-white"
                   >
                     {listConfig.apptTypes.map((t) => (
-                      <option key={t} value={t} className="bg-[#0A2E2A] text-white">
+                      <option key={t} value={t} className="bg-brand-bg text-white">
                         {t}
                       </option>
                     ))}

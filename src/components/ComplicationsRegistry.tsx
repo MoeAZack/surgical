@@ -121,46 +121,6 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
     }
   };
 
-  const handleSaveDraft = () => {
-    if (!pidInput) {
-      return;
-    }
-
-    try {
-      const stored = localStorage.getItem("clinical_drafts");
-      const drafts = stored ? JSON.parse(stored) : [];
-
-      const newDraft = {
-        id: "draft_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9),
-        type: "complication",
-        createdAt: new Date().toISOString(),
-        data: {
-          PatientID: pidInput,
-          Complication: whatInput || listConfig.complications[0] || "Other",
-          Grade: gradeInput,
-          DateDetected: dateInput,
-          Management: mgmtInput,
-          Surgeon: ops.find(o => o.PatientID === pidInput)?.Surgeon || "",
-          Procedure: ops.find(o => o.PatientID === pidInput)?.Procedure || "",
-          Notes: mgmtInput
-        }
-      };
-
-      drafts.push(newDraft);
-      localStorage.setItem("clinical_drafts", JSON.stringify(drafts));
-
-      setMgmtInput("");
-      
-      // Dispatch toast
-      const toastEvent = new CustomEvent("clinical_toast", {
-        detail: { message: t.draftSavedSuccess, isError: false }
-      });
-      window.dispatchEvent(toastEvent);
-    } catch (err) {
-      console.error("Failed saving complication draft", err);
-    }
-  };
-
   // Search Filter
   const filteredComps = complications.filter((c) => {
     const q = search.toLowerCase();
@@ -211,14 +171,14 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
               <select
                 value={pidInput}
                 onChange={(e) => setPidInput(e.target.value)}
-                className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
+                className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-brand-bg text-white"
                 required
               >
                 {ops.length === 0 && (
                   <option value="">{isRTL ? "لا توجد عمليات مسجلة" : "No operations logged"}</option>
                 )}
                 {ops.map((o) => (
-                  <option key={o.id} value={o.PatientID} className="bg-[#0A2E2A] text-white">
+                  <option key={o.id} value={o.PatientID} className="bg-brand-bg text-white">
                     {o.PatientID} ({o.Procedure})
                   </option>
                 ))}
@@ -234,10 +194,10 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                   id="c-what-select"
                   value={whatInput}
                   onChange={(e) => setWhatInput(e.target.value)}
-                  className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
+                  className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-brand-bg text-white"
                 >
                   {listConfig.complications.map((c) => (
-                    <option key={c} value={c} className="bg-[#0A2E2A] text-white">
+                    <option key={c} value={c} className="bg-brand-bg text-white">
                       {c}
                     </option>
                   ))}
@@ -262,15 +222,15 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
               <select
                 value={gradeInput}
                 onChange={(e) => setGradeInput(e.target.value)}
-                className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
+                className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-brand-bg text-white"
               >
-                <option value="Grade I" className="bg-[#0A2E2A] text-white">Grade I</option>
-                <option value="Grade II" className="bg-[#0A2E2A] text-white">Grade II</option>
-                <option value="Grade IIIa" className="bg-[#0A2E2A] text-white">Grade IIIa</option>
-                <option value="Grade IIIb" className="bg-[#0A2E2A] text-white">Grade IIIb</option>
-                <option value="Grade IVa" className="bg-[#0A2E2A] text-white">Grade IVa</option>
-                <option value="Grade IVb" className="bg-[#0A2E2A] text-white">Grade IVb</option>
-                <option value="Grade V" className="bg-[#0A2E2A] text-white">Grade V</option>
+                <option value="Grade I" className="bg-brand-bg text-white">Grade I</option>
+                <option value="Grade II" className="bg-brand-bg text-white">Grade II</option>
+                <option value="Grade IIIa" className="bg-brand-bg text-white">Grade IIIa</option>
+                <option value="Grade IIIb" className="bg-brand-bg text-white">Grade IIIb</option>
+                <option value="Grade IVa" className="bg-brand-bg text-white">Grade IVa</option>
+                <option value="Grade IVb" className="bg-brand-bg text-white">Grade IVb</option>
+                <option value="Grade V" className="bg-brand-bg text-white">Grade V</option>
               </select>
             </div>
 
@@ -314,14 +274,6 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
           </div>
 
           <div className={`flex flex-col sm:flex-row gap-3 pt-2 ${isRTL ? "sm:justify-start" : "sm:justify-end"}`}>
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              disabled={ops.length === 0}
-              className="bg-white/10 hover:bg-white/15 text-white py-2.5 px-5 rounded-xl font-semibold text-sm transition-colors cursor-pointer border border-white/10 text-center"
-            >
-              📂 {t.saveAsDraftBtn}
-            </button>
             <button
               type="submit"
               disabled={submitting || ops.length === 0}

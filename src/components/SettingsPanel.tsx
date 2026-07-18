@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { DBState } from "../types";
+import { apiFetch } from "../api";
 import { Sliders, Link as LinkIcon, Users, Clipboard, AlertTriangle, ListChecks, Download, Upload, Palette } from "lucide-react";
 
 interface SettingsPanelProps {
@@ -74,20 +75,64 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }
   };
 
-  // Add Item to local states
-  const addLocalItem = (type: "surgeons" | "procedures" | "checklist" | "complications", value: string, setter: React.Dispatch<React.SetStateAction<string[]>>, inputSetter: React.Dispatch<React.SetStateAction<string>>) => {
+  // Add an item and persist immediately (no separate Save press needed).
+  const addAndSave = async (
+    type: "surgeons" | "procedures" | "checklist" | "complications",
+    value: string,
+    list: string[],
+    setList: React.Dispatch<React.SetStateAction<string[]>>,
+    inputSetter: React.Dispatch<React.SetStateAction<string>>
+  ) => {
     const val = value.trim();
     if (!val) return;
-    setter((prev) => {
-      if (prev.some((p) => p.toLowerCase() === val.toLowerCase())) return prev;
-      return [...prev, val];
-    });
+    if (list.some((p) => p.toLowerCase() === val.toLowerCase())) {
+      inputSetter("");
+      return;
+    }
+    const next = [...list, val];
+    setList(next);
     inputSetter("");
+    try {
+      await onSaveList(type, next);
+    } catch {
+      /* toast fired by parent */
+    }
   };
 
-  // Remove Item from local states
-  const removeLocalItem = (index: number, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
-    setter((prev) => prev.filter((_, i) => i !== index));
+  // Remove an item and persist immediately.
+  const removeAndSave = async (
+    type: "surgeons" | "procedures" | "checklist" | "complications",
+    index: number,
+    list: string[],
+    setList: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    const next = list.filter((_, i) => i !== index);
+    setList(next);
+    try {
+      await onSaveList(type, next);
+    } catch {
+      /* toast fired by parent */
+    }
+  };
+
+  // Authenticated backup download (the endpoint now requires a session token,
+  // so a plain <a href> won't work — fetch as a blob and save it).
+  const handleDownloadBackup = async () => {
+    try {
+      const res = await apiFetch("/api/backup/download");
+      if (!res.ok) throw new Error("Download failed.");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "surgical_case_tracker_backup.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      window.dispatchEvent(new CustomEvent("clinical_toast", { detail: { message: "Backup download failed: " + err.message, isError: true } }));
+    }
   };
 
   // Handle change of an item in list
@@ -243,13 +288,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </p>
 
             <div className="space-y-2 mt-4">
-              <a
-                href="/api/backup/download"
+              <button
+                type="button"
+                onClick={handleDownloadBackup}
                 className="w-full border border-white/10 hover:border-brand-primary/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 <Download className="w-4 h-4 shrink-0 text-brand-primary" />
                 Download Backup (.json)
-              </a>
+              </button>
 
               <label className="w-full border border-white/10 hover:border-brand-primary/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer relative">
                 <Upload className="w-4 h-4 shrink-0 text-brand-primary" />
@@ -326,7 +372,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => removeLocalItem(i, setSurgeons)}
+                  onClick={() => removeAndSave("surgeons", i, surgeons, setSurgeons)}
                   className="text-white/40 hover:text-rose-400 font-bold p-1 text-sm shrink-0 cursor-pointer"
                 >
                   ✕
@@ -345,7 +391,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             />
             <button
               type="button"
-              onClick={() => addLocalItem("surgeons", newSurgeon, setSurgeons, setNewSurgeon)}
+              onClick={() => addAndSave("surgeons", newSurgeon, surgeons, setSurgeons, setNewSurgeon)}
               className="bg-white/10 hover:bg-white/15 text-white py-1.5 px-3.5 rounded-xl font-semibold text-xs shrink-0 cursor-pointer"
             >
               Add
@@ -381,7 +427,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => removeLocalItem(i, setProcedures)}
+                  onClick={() => removeAndSave("procedures", i, procedures, setProcedures)}
                   className="text-white/40 hover:text-rose-400 font-bold p-1 text-sm shrink-0 cursor-pointer"
                 >
                   ✕
@@ -400,7 +446,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             />
             <button
               type="button"
-              onClick={() => addLocalItem("procedures", newProcedure, setProcedures, setNewProcedure)}
+              onClick={() => addAndSave("procedures", newProcedure, procedures, setProcedures, setNewProcedure)}
               className="bg-white/10 hover:bg-white/15 text-white py-1.5 px-3.5 rounded-xl font-semibold text-xs shrink-0 cursor-pointer"
             >
               Add
@@ -436,7 +482,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => removeLocalItem(i, setChecklist)}
+                  onClick={() => removeAndSave("checklist", i, checklist, setChecklist)}
                   className="text-white/40 hover:text-rose-400 font-bold p-1 text-sm shrink-0 cursor-pointer"
                 >
                   ✕
@@ -455,7 +501,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             />
             <button
               type="button"
-              onClick={() => addLocalItem("checklist", newCheckItem, setChecklist, setNewCheckItem)}
+              onClick={() => addAndSave("checklist", newCheckItem, checklist, setChecklist, setNewCheckItem)}
               className="bg-white/10 hover:bg-white/15 text-white py-1.5 px-3.5 rounded-xl font-semibold text-xs shrink-0 cursor-pointer"
             >
               Add
@@ -495,7 +541,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => removeLocalItem(i, setComplications)}
+                  onClick={() => removeAndSave("complications", i, complications, setComplications)}
                   className="text-white/40 hover:text-rose-400 font-bold p-1 text-sm shrink-0 cursor-pointer"
                 >
                   ✕
@@ -514,7 +560,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             />
             <button
               type="button"
-              onClick={() => addLocalItem("complications", newComplication, setComplications, setNewComplication)}
+              onClick={() => addAndSave("complications", newComplication, complications, setComplications, setNewComplication)}
               className="bg-white/10 hover:bg-white/15 text-white py-1.5 px-3.5 rounded-xl font-semibold text-xs shrink-0 cursor-pointer"
             >
               Add
