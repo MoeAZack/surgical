@@ -139,7 +139,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className={isRTL ? "text-right" : "text-left"}>
           <h2 className="text-3xl font-display font-semibold text-white tracking-tight flex items-center gap-2">
-            <Droplet className="w-8 h-8 text-emerald-400" />
+            <Droplet className="w-8 h-8 text-brand-primary" />
             <span>{t.tabDrains}</span>
           </h2>
           <p className="text-sm text-white/60 mt-1">
@@ -166,7 +166,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
               placeholder={isRTL ? "بحث برقم المريض أو العملية..." : "Search drains..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white/5 text-white placeholder-white/30 text-xs py-2 px-3 border border-white/10 rounded-xl focus:outline-none focus:border-emerald-500"
+              className="w-full bg-white/5 text-white placeholder-white/30 text-xs py-2 px-3 border border-white/10 rounded-xl focus:outline-none focus:border-brand-primary"
             />
           </div>
         </div>
@@ -184,7 +184,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                   <div className="flex items-center justify-between">
                     <button
                       onClick={() => onOpenDrawer(o.PatientID)}
-                      className="font-mono text-xs font-bold text-emerald-300 border-b border-dashed border-emerald-400 hover:border-solid transition-all text-left cursor-pointer"
+                      className="font-mono text-xs font-bold text-brand-primary-light border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                     >
                       {o.PatientID}
                     </button>
@@ -230,7 +230,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                     {isLate && (
                       <button
                         onClick={() => openWhatsappModal(o, d)}
-                        className="flex-1 justify-center bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-300 font-semibold text-xs py-2 px-3 rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer"
+                        className="flex-1 justify-center bg-brand-primary/10 hover:bg-brand-primary/15 border border-brand-primary/20 text-brand-primary-light font-semibold text-xs py-2 px-3 rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer"
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
                         <span>{t.whatsappReminderBtn}</span>
@@ -250,7 +250,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                       <button
                         onClick={() => handleMarkRemoved(o.PatientID)}
                         disabled={submittingPid === o.PatientID}
-                        className="flex-1 justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2 px-3 rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                        className="flex-1 justify-center bg-brand-primary hover:bg-brand-primary-hover text-white font-semibold text-xs py-2 px-3 rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         <Check className="w-3.5 h-3.5" />
                         <span>{submittingPid === o.PatientID ? "..." : (isRTL ? "إزالة" : "Mark Removed")}</span>
@@ -292,7 +292,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                       <td className="py-3.5 px-6">
                         <button
                           onClick={() => onOpenDrawer(o.PatientID)}
-                          className="font-mono text-xs font-bold text-emerald-300 hover:text-emerald-200 border-b border-dashed border-emerald-400 hover:border-solid transition-all text-left cursor-pointer"
+                          className="font-mono text-xs font-bold text-brand-primary-light hover:text-brand-primary border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                         >
                           {o.PatientID}
                         </button>
@@ -330,7 +330,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                         {isLate && (
                           <button
                             onClick={() => openWhatsappModal(o, d)}
-                            className="bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-300 font-semibold text-xs py-1.5 px-3 rounded-lg transition-all inline-flex items-center gap-1 cursor-pointer"
+                            className="bg-brand-primary/10 hover:bg-brand-primary/15 border border-brand-primary/20 text-brand-primary-light font-semibold text-xs py-1.5 px-3 rounded-lg transition-all inline-flex items-center gap-1 cursor-pointer"
                             title={isRTL ? "تذكير واتساب" : "WhatsApp Reminder"}
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
@@ -351,7 +351,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                           <button
                             onClick={() => handleMarkRemoved(o.PatientID)}
                             disabled={submittingPid === o.PatientID}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-1.5 px-3 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            className="bg-brand-primary hover:bg-brand-primary-hover text-white font-semibold text-xs py-1.5 px-3 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
                           >
                             <Check className="w-3.5 h-3.5" />
                             <span>{submittingPid === o.PatientID ? "..." : (isRTL ? "أزيل" : "Mark Removed")}</span>
@@ -436,7 +436,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
             </button>
 
             <h3 className="text-lg font-display font-semibold text-white mb-1 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-emerald-400" />
+              <MessageSquare className="w-5 h-5 text-brand-primary" />
               <span>{t.whatsappModalTitle}</span>
             </h3>
             <p className="text-xs text-white/50 mb-4">{t.whatsappModalSub}</p>
@@ -452,7 +452,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                     type="button"
                     onClick={() => handleRecipientChange("patient")}
                     className={`py-1.5 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
-                      whatsappRecipient === "patient" ? "bg-emerald-600 text-white shadow" : "text-white/60 hover:text-white"
+                      whatsappRecipient === "patient" ? "bg-brand-primary text-white shadow" : "text-white/60 hover:text-white"
                     }`}
                   >
                     👤 {isRTL ? "المريض نفسه" : "Patient"}
@@ -461,7 +461,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                     type="button"
                     onClick={() => handleRecipientChange("doctor")}
                     className={`py-1.5 px-3 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
-                      whatsappRecipient === "doctor" ? "bg-emerald-600 text-white shadow" : "text-white/60 hover:text-white"
+                      whatsappRecipient === "doctor" ? "bg-brand-primary text-white shadow" : "text-white/60 hover:text-white"
                     }`}
                   >
                     🩺 {isRTL ? "رئيس الأطباء / الجراح" : "Chief Supervisor"}
@@ -477,7 +477,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                 <textarea
                   value={whatsappText}
                   onChange={(e) => setWhatsappText(e.target.value)}
-                  className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-xs text-white font-sans focus:outline-none focus:border-emerald-500 min-h-[120px] leading-relaxed"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-xs text-white font-sans focus:outline-none focus:border-brand-primary min-h-[120px] leading-relaxed"
                 />
               </div>
 
@@ -492,7 +492,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                 <button
                   type="button"
                   onClick={launchWhatsapp}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-5 rounded-xl text-xs transition-colors cursor-pointer border border-emerald-400/20 shadow flex items-center gap-1.5"
+                  className="bg-brand-primary hover:bg-brand-primary-hover text-white font-semibold py-2.5 px-5 rounded-xl text-xs transition-colors cursor-pointer border border-brand-primary/20 shadow flex items-center gap-1.5"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{t.whatsappSendBtn}</span>

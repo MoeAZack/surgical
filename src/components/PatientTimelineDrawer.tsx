@@ -117,7 +117,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
       >
         <div>
           {/* Header */}
-          <div className="bg-gradient-to-br from-emerald-950/80 to-[#0A2E2A]/90 border-b border-white/10 p-6 relative">
+          <div className="bg-gradient-to-br from-brand-primary/40 to-[#0B1E1B]/90 border-b border-white/10 p-6 relative">
             <button
               onClick={onClose}
               className={`absolute top-5 text-white/60 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer ${
@@ -127,7 +127,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
               <X className="w-5 h-5" />
             </button>
 
-            <span className={`font-mono text-xs font-bold text-emerald-400 tracking-wider uppercase block ${isRTL ? "text-right" : "text-left"}`}>
+            <span className={`font-mono text-xs font-bold text-brand-primary-light tracking-wider uppercase block ${isRTL ? "text-right" : "text-left"}`}>
               {t.patientTimeline}
             </span>
             <h3 className={`font-display font-bold text-2xl mt-1 tracking-tight ${isRTL ? "text-right" : "text-left"}`}>{o.PatientID}</h3>
@@ -153,14 +153,14 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                 }}
                 className="flex-1 bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold py-1.5 px-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
-                <Pencil className="w-3.5 h-3.5 text-emerald-400" />
+                <Pencil className="w-3.5 h-3.5 text-brand-primary" />
                 {t.editCaseBtn}
               </button>
               <button
                 onClick={() => onOpenPhotos(o.PatientID)}
                 className="flex-1 bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold py-1.5 px-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
-                <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+                <ImageIcon className="w-3.5 h-3.5 text-brand-primary" />
                 {t.photosBtn}
               </button>
             </div>
@@ -170,7 +170,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
             {/* Checklist */}
             <div className="pt-0 first:pt-0">
               <h4 className={`font-display font-bold text-[10.5px] uppercase tracking-wider text-white/40 mb-3 flex items-center gap-1.5 ${isRTL ? "flex-row-reverse" : ""}`}>
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> {t.prePostChecklist}
+                <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary" /> {t.prePostChecklist}
               </h4>
               <div className="space-y-2">
                 {checklistItems.map((item) => {
@@ -184,7 +184,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                         type="checkbox"
                         checked={isChecked}
                         onChange={(e) => onToggleCheckItem(o.PatientID, item, e.target.checked)}
-                        className="w-4.5 h-4.5 accent-emerald-500 rounded cursor-pointer"
+                        className="w-4.5 h-4.5 accent-brand-primary rounded cursor-pointer"
                       />
                       <span>{item}</span>
                     </label>
@@ -197,7 +197,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
             {/* Appointments */}
             <div className="pt-5">
               <h4 className={`font-display font-bold text-[10.5px] uppercase tracking-wider text-white/40 mb-3 flex items-center gap-1.5 ${isRTL ? "flex-row-reverse" : ""}`}>
-                <Calendar className="w-3.5 h-3.5 text-emerald-400" /> {t.clinicVisits}
+                <Calendar className="w-3.5 h-3.5 text-brand-primary" /> {t.clinicVisits}
               </h4>
               <div className="space-y-2">
                 {myAppts.map((a) => (
@@ -253,7 +253,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                 <button
                   onClick={() => setShowAddComp(!showAddComp)}
                   title={t.quickAddComp}
-                  className="p-1 rounded-lg border border-white/10 text-emerald-400 hover:text-emerald-300 hover:bg-white/5 transition-colors cursor-pointer"
+                  className="p-1 rounded-lg border border-white/10 text-brand-primary hover:text-brand-primary-hover hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   <PlusCircle className="w-4.5 h-4.5" />
                 </button>
@@ -330,7 +330,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                     <button
                       type="submit"
                       disabled={submittingComp}
-                      className="py-1 px-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-[10.5px] font-bold text-white cursor-pointer border border-emerald-400/20 shadow"
+                      className="py-1 px-3 bg-brand-primary hover:bg-brand-primary-hover rounded-lg text-[10.5px] font-bold text-white cursor-pointer border border-brand-primary/20 shadow"
                     >
                       {submittingComp ? "..." : t.submitBtn}
                     </button>
@@ -350,7 +350,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                     <span
                       className={`font-semibold py-0.5 px-2 rounded-full text-[9px] ${
                         x.Resolved === "Yes"
-                          ? "bg-emerald-950/40 border border-emerald-500/30 text-emerald-300"
+                          ? "bg-brand-primary/10 border border-brand-primary/20 text-brand-primary-light"
                           : "bg-rose-950/40 border border-rose-500/30 text-rose-300"
                       }`}
                     >
@@ -365,7 +365,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
             {/* Follow-up milestones */}
             <div className="pt-5">
               <h4 className={`font-display font-bold text-[10.5px] uppercase tracking-wider text-white/40 mb-3 flex items-center gap-1.5 ${isRTL ? "flex-row-reverse" : ""}`}>
-                <Bookmark className="w-3.5 h-3.5 text-emerald-400" /> {t.milestoneReview}
+                <Bookmark className="w-3.5 h-3.5 text-brand-primary" /> {t.milestoneReview}
               </h4>
               <div className="space-y-2 text-xs">
                 {milestones.map(({ key, label, months }) => {
@@ -385,7 +385,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                       </div>
                       <span
                         className={`font-display font-bold text-xs ${
-                          isLate ? "text-rose-400" : val !== "—" ? "text-emerald-300" : "text-white/40"
+                          isLate ? "text-rose-400" : val !== "—" ? "text-brand-primary-light" : "text-white/40"
                         }`}
                       >
                         {isLate ? (isRTL ? "متأخرة" : "OVERDUE") : val}
@@ -399,7 +399,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                   <span
                     className={`py-1 px-3 rounded-xl font-display font-bold border ${
                       f.FinalOutcome === "Success"
-                        ? "bg-emerald-950/40 text-emerald-300 border-emerald-500/30"
+                        ? "bg-brand-primary/10 text-brand-primary-light border border-brand-primary/20"
                         : f.FinalOutcome === "Ongoing"
                         ? "bg-white/5 text-white border-white/10"
                         : "bg-rose-950/40 text-rose-300 border-rose-500/30"

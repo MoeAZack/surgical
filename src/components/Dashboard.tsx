@@ -209,7 +209,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
             <button
               onClick={() => setActiveSubTab("shift")}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeSubTab === "shift" ? "bg-emerald-600 text-white shadow-md font-bold" : "text-white/60 hover:text-white"
+                activeSubTab === "shift" ? "bg-brand-primary text-white shadow-md font-bold" : "text-white/60 hover:text-white"
               }`}
             >
               {t.shiftView}
@@ -217,7 +217,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
             <button
               onClick={() => setActiveSubTab("analytics")}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                activeSubTab === "analytics" ? "bg-emerald-600 text-white shadow-md font-bold" : "text-white/60 hover:text-white"
+                activeSubTab === "analytics" ? "bg-brand-primary text-white shadow-md font-bold" : "text-white/60 hover:text-white"
               }`}
             >
               {t.analyticsView}
@@ -227,7 +227,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
           <button
             onClick={handlePrint}
             title={t.printShiftSheet}
-            className="p-2 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 rounded-xl text-emerald-400 transition-colors cursor-pointer"
+            className="p-2 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 rounded-xl text-brand-primary transition-colors cursor-pointer"
           >
             <Printer className="w-4 h-4" />
           </button>
@@ -237,22 +237,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
       {/* 1. Today's Clinical Shift View */}
       {activeSubTab === "shift" && (
         <div className="space-y-6">
-          <div className="bg-gradient-to-br from-[#0C3B35] to-[#061E1B] border border-emerald-500/15 rounded-2xl p-6 shadow-xl relative overflow-hidden text-left">
+          <div className="bg-gradient-to-br from-brand-primary/20 to-brand-primary/5 border border-brand-primary/20 rounded-2xl p-6 shadow-xl relative overflow-hidden text-left">
             <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-display font-bold text-emerald-300">{t.todayShiftTitle}</h3>
+                <h3 className="text-lg font-display font-bold text-brand-primary-light">{t.todayShiftTitle}</h3>
                 <p className="text-xs text-white/70 mt-1 max-w-xl">{t.todayShiftSub}</p>
               </div>
               <button
                 onClick={handlePrint}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl border border-emerald-400/20 shadow-md cursor-pointer print:hidden transition-colors"
+                className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-bold py-2.5 px-4 rounded-xl border border-brand-primary/20 shadow-md cursor-pointer print:hidden transition-colors"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>{t.printShiftSheet}</span>
               </button>
             </div>
             <div className="absolute right-[-2%] bottom-[-10%] opacity-[0.03] pointer-events-none">
-              <Printer className="w-48 h-48 text-emerald-400" />
+              <Printer className="w-48 h-48 text-brand-primary" />
             </div>
           </div>
 
@@ -262,7 +262,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
               {/* Today's Visits Board */}
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-lg text-left">
                 <h4 className="font-display font-bold text-white text-sm flex items-center gap-2 mb-4 border-b border-white/5 pb-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-brand-primary animate-pulse" />
                   {t.todayAppts} ({todayAppts.length})
                 </h4>
                 <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
@@ -275,7 +275,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-emerald-300">{appt.PatientID}</span>
+                            <span className="font-mono text-xs font-bold text-brand-primary-light">{appt.PatientID}</span>
                             <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-white/80 font-semibold">
                               {appt.Type}
                             </span>
@@ -283,7 +283,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                           {appt.Notes && <p className="text-[11px] text-white/50 max-w-xs truncate">{appt.Notes}</p>}
                         </div>
                         <div className="text-right">
-                          <span className="font-mono text-xs font-bold text-emerald-400">{appt.Time || "—"}</span>
+                          <span className="font-mono text-xs font-bold text-brand-primary">{appt.Time || "—"}</span>
                           <span className="text-[10px] block text-white/40">{appt.Status}</span>
                         </div>
                       </div>
@@ -299,7 +299,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
 
               {/* Mobile Shortcut / PWA card */}
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-lg flex gap-4 text-left print:hidden">
-                <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 bg-brand-primary/10 border border-brand-primary/20 text-brand-primary rounded-xl flex items-center justify-center shrink-0">
                   <Smartphone className="w-5 h-5" />
                 </div>
                 <div>
@@ -328,7 +328,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                           className="p-3.5 border border-rose-500/20 bg-rose-950/15 hover:bg-rose-950/25 rounded-xl transition-all cursor-pointer flex items-center justify-between"
                         >
                           <div>
-                            <div className="font-mono text-xs font-bold text-emerald-300">{o.PatientID}</div>
+                            <div className="font-mono text-xs font-bold text-brand-primary-light">{o.PatientID}</div>
                             <div className="text-[11px] text-white/60 truncate max-w-[180px] mt-0.5">{o.Procedure}</div>
                           </div>
                           <div className="text-right">
@@ -340,7 +340,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                     })
                   ) : (
                     <div className="py-12 text-center text-white/40 text-sm">
-                      <Droplet className="w-8 h-8 mx-auto mb-2 opacity-30 text-emerald-400" />
+                      <Droplet className="w-8 h-8 mx-auto mb-2 opacity-30 text-brand-primary" />
                       {t.noDrainsAlert}
                     </div>
                   )}
@@ -364,7 +364,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                           className="p-3 border border-amber-500/20 bg-amber-950/10 hover:bg-amber-950/20 rounded-xl transition-all cursor-pointer flex items-center justify-between"
                         >
                           <div>
-                            <span className="font-mono text-xs font-bold text-emerald-300">{x.op.PatientID}</span>
+                            <span className="font-mono text-xs font-bold text-brand-primary-light">{x.op.PatientID}</span>
                             <span className="text-[11px] text-white/50 block mt-0.5">
                               {x.op.Procedure} • {x.label}
                             </span>
@@ -376,7 +376,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                       ))
                   ) : (
                     <div className="py-8 text-center text-white/40 text-sm">
-                      <CheckCircle className="w-7 h-7 mx-auto mb-2 opacity-30 text-emerald-400" />
+                      <CheckCircle className="w-7 h-7 mx-auto mb-2 opacity-30 text-brand-primary" />
                       {t.noOverdueTasks}
                     </div>
                   )}
@@ -396,7 +396,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
             <div className="bg-white/5 border border-white/10 rounded-2xl p-5 shadow relative overflow-hidden flex flex-col justify-between text-left">
               <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">{t.totalCases}</span>
               <div className="text-3xl font-display font-extrabold mt-2 text-white tabular-nums">{ops.length}</div>
-              <div className="absolute top-0 left-0 bottom-0 w-1 bg-emerald-400" />
+              <div className="absolute top-0 left-0 bottom-0 w-1 bg-brand-primary" />
             </div>
 
             {/* Drains */}
@@ -439,7 +439,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
               <div className="text-3xl font-display font-extrabold mt-2 text-white tabular-nums">
                 {successRate === null ? "—" : `${successRate}%`}
               </div>
-              <div className="absolute top-0 left-0 bottom-0 w-1 bg-emerald-400" />
+              <div className="absolute top-0 left-0 bottom-0 w-1 bg-brand-primary" />
             </div>
           </div>
 
@@ -466,7 +466,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                         }`}
                       >
                         <div>
-                          <div className="font-mono text-xs font-bold text-emerald-300">{o.PatientID}</div>
+                          <div className="font-mono text-xs font-bold text-brand-primary-light">{o.PatientID}</div>
                           <div className="text-[11px] text-white/60 truncate max-w-[140px] mt-0.5">{o.Procedure}</div>
                         </div>
                         <div className="text-right">
@@ -499,7 +499,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                       className="p-3 border border-white/10 rounded-xl bg-sky-950/20 hover:bg-sky-900/30 transition-all cursor-pointer flex items-center justify-between text-white"
                     >
                       <div>
-                        <div className="font-mono text-xs font-bold text-emerald-300">{a.PatientID}</div>
+                        <div className="font-mono text-xs font-bold text-brand-primary-light">{a.PatientID}</div>
                         <div className="text-[11px] text-white/60 mt-0.5">{a.Type}</div>
                       </div>
                       <div className="text-right">
@@ -533,7 +533,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                       }`}
                     >
                       <div>
-                        <div className="font-mono text-xs font-bold text-emerald-300">{x.op.PatientID}</div>
+                        <div className="font-mono text-xs font-bold text-brand-primary-light">{x.op.PatientID}</div>
                         <div className="text-[11px] text-white/60 mt-0.5 truncate max-w-[140px]">{x.op.Procedure} • {x.label}</div>
                       </div>
                       <div className="text-right">
@@ -559,12 +559,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-xl lg:col-span-2 text-left">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 border-b border-white/5 pb-3">
                 <h3 className="font-display font-semibold text-white flex items-center gap-2">
-                  <Users className="w-4 h-4 text-emerald-400" />
+                  <Users className="w-4 h-4 text-brand-primary" />
                   {t.surgeonStatsTitle}
                 </h3>
                 <button
                   onClick={() => setShowReportModal(true)}
-                  className="bg-emerald-600/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/25 transition-all text-xs font-semibold py-1.5 px-3 rounded-xl cursor-pointer"
+                  className="bg-brand-primary/10 text-brand-primary-light border border-brand-primary/30 hover:bg-brand-primary/25 transition-all text-xs font-semibold py-1.5 px-3 rounded-xl cursor-pointer"
                 >
                   {t.monthlySummaryReportBtn}
                 </button>
@@ -597,7 +597,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                                 <span className="text-white/20">—</span>
                               )}
                             </td>
-                            <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">
+                            <td className="py-3 px-4 text-right font-mono font-bold text-brand-primary">
                               {compRate}%
                             </td>
                           </tr>
@@ -633,7 +633,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                         </div>
                         <div className="text-right">
                           {r !== null ? (
-                            <span className="text-[10.5px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded">
+                            <span className="text-[10.5px] font-bold bg-brand-primary/10 text-brand-primary-light border border-brand-primary/20 px-2 py-0.5 rounded">
                               {r}% {isRTL ? "نجاح" : "Success"}
                             </span>
                           ) : (
@@ -655,10 +655,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
       {/* 4. CLINICAL performance print summary Modal overlay */}
       {showReportModal && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#051B18] border border-emerald-500/20 max-w-2xl w-full rounded-2xl p-6 text-white space-y-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+          <div className="bg-[#0B1E1B] border border-brand-primary/20 max-w-2xl w-full rounded-2xl p-6 text-white space-y-6 shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-start border-b border-white/10 pb-4">
               <div>
-                <h3 className="text-lg font-display font-bold text-emerald-300">{t.monthlySummaryModalTitle}</h3>
+                <h3 className="text-lg font-display font-bold text-brand-primary-light">{t.monthlySummaryModalTitle}</h3>
                 <p className="text-xs text-white/60 mt-1">{t.monthlySummaryModalSub}</p>
               </div>
               <button
@@ -672,7 +672,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
             {/* Document Content */}
             <div className="space-y-6 border border-white/5 p-6 rounded-xl bg-black/25 font-sans leading-relaxed text-sm text-left">
               <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                <span className="text-sm font-bold uppercase tracking-wide text-emerald-300">Case Tracker Clinical Report</span>
+                <span className="text-sm font-bold uppercase tracking-wide text-brand-primary-light">Case Tracker Clinical Report</span>
                 <span className="text-xs font-mono text-white/50">{fmt(todayStr)}</span>
               </div>
 
@@ -691,14 +691,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                 </div>
                 <div>
                   <span className="text-[10px] text-white/45 block uppercase">{t.successRate}</span>
-                  <span className="text-lg font-bold font-mono text-emerald-300">
+                  <span className="text-lg font-bold font-mono text-brand-primary-light">
                     {successRate === null ? "—" : `${successRate}%`}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Clinical Surgeon Outcomes</h4>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-brand-primary">Clinical Surgeon Outcomes</h4>
                 <div className="divide-y divide-white/5">
                   {surgeonStats.map(([surgeon, v]) => {
                     const compRate = v.cases ? Math.round((100 * v.complications) / v.cases) : 0;
@@ -715,14 +715,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Outcome Rate by Procedure</h4>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-brand-primary">Outcome Rate by Procedure</h4>
                 <div className="divide-y divide-white/5">
                   {procStats.map(([proc, v]) => {
                     const r = v.cl ? Math.round((100 * v.s) / v.cl) : null;
                     return (
                       <div key={proc} className="py-2 flex justify-between text-xs">
                         <span className="text-white/90">{proc}</span>
-                        <span className="font-mono text-emerald-400 font-bold">
+                        <span className="font-mono text-brand-primary font-bold">
                           {r !== null ? `${r}% success` : "pending milestones"}
                         </span>
                       </div>
@@ -741,7 +741,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
               </button>
               <button
                 onClick={handlePrint}
-                className="py-2 px-4 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs rounded-xl text-white flex items-center gap-2 cursor-pointer border border-emerald-400/20"
+                className="py-2 px-4 bg-brand-primary hover:bg-brand-primary-hover font-bold text-xs rounded-xl text-white flex items-center gap-2 cursor-pointer border border-brand-primary/20"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>{t.printReportBtn}</span>

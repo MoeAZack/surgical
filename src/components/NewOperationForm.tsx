@@ -228,7 +228,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
 
       <form onSubmit={handleSubmit} className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
         <h3 className={`font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-1.5 mb-6 ${isRTL ? "flex-row-reverse" : "flex-row"}`}>
-          <PlusCircle className="w-4.5 h-4.5 text-emerald-400" /> {t.formIntakeTitle}
+          <PlusCircle className="w-4.5 h-4.5 text-brand-primary" /> {t.formIntakeTitle}
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -241,7 +241,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
               placeholder={t.patientIdPlaceholder}
               value={pid}
               onChange={(e) => handlePidChange(e.target.value)}
-              className={`w-full py-2 px-3 border ${pidError ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-emerald-500"} rounded-xl text-sm focus:outline-none bg-white/5 font-semibold text-white uppercase placeholder-white/30`}
+              className={`w-full py-2 px-3 border ${pidError ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-brand-primary"} rounded-xl text-sm focus:outline-none bg-white/5 font-semibold text-white uppercase placeholder-white/30`}
               required
             />
             {pidError && (
@@ -262,7 +262,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
               placeholder={t.agePlaceholder}
               value={age}
               onChange={(e) => handleAgeChange(e.target.value)}
-              className={`w-full py-2 px-3 border ${ageError ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-emerald-500"} rounded-xl text-sm focus:outline-none bg-white/5 text-white placeholder-white/30`}
+              className={`w-full py-2 px-3 border ${ageError ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-brand-primary"} rounded-xl text-sm focus:outline-none bg-white/5 text-white placeholder-white/30`}
             />
             {ageError && (
               <p className={`text-rose-400 text-xs mt-1.5 font-semibold ${isRTL ? "text-right" : "text-left"}`}>
@@ -279,7 +279,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
               type="date"
               value={opDate}
               onChange={(e) => handleDateChange(e.target.value)}
-              className={`w-full py-2 px-3 border ${opDateError ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-emerald-500"} rounded-xl text-sm focus:outline-none bg-white/5 text-white`}
+              className={`w-full py-2 px-3 border ${opDateError ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-brand-primary"} rounded-xl text-sm focus:outline-none bg-white/5 text-white`}
               required
             />
             {opDateError && (
@@ -298,7 +298,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
                 id="f-op-select"
                 value={procedure}
                 onChange={(e) => setProcedure(e.target.value)}
-                className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white"
+                className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
               >
                 {listConfig.procedures.map((p) => (
                   <option key={p} value={p} className="bg-[#0A2E2A] text-white">
@@ -312,7 +312,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
                   const added = await onQuickAddList("procedures", "f-op-select");
                   if (added) setProcedure(added);
                 }}
-                className="py-1 px-2.5 border border-white/10 hover:border-emerald-500 text-white/60 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm font-bold cursor-pointer"
+                className="py-1 px-2.5 border border-white/10 hover:border-brand-primary text-white/60 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm font-bold cursor-pointer"
               >
                 +
               </button>
@@ -328,7 +328,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
                 id="f-surgeon-select"
                 value={surgeon}
                 onChange={(e) => setSurgeon(e.target.value)}
-                className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white"
+                className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
               >
                 {listConfig.surgeons.map((s) => (
                   <option key={s} value={s} className="bg-[#0A2E2A] text-white">
@@ -342,7 +342,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
                   const added = await onQuickAddList("surgeons", "f-surgeon-select");
                   if (added) setSurgeon(added);
                 }}
-                className="py-1 px-2.5 border border-white/10 hover:border-emerald-500 text-white/60 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm font-bold cursor-pointer"
+                className="py-1 px-2.5 border border-white/10 hover:border-brand-primary text-white/60 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm font-bold cursor-pointer"
               >
                 +
               </button>
@@ -356,7 +356,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
             <select
               value={drain ? "Yes" : "No"}
               onChange={(e) => setDrain(e.target.value === "Yes")}
-              className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white"
+              className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
             >
               <option value="No" className="bg-[#0A2E2A] text-white">No</option>
               <option value="Yes" className="bg-[#0A2E2A] text-white">Yes</option>
@@ -377,7 +377,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
               placeholder={t.notesPlaceholder}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full py-2.5 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white/5 text-white placeholder-white/30 min-h-[90px]"
+              className="w-full py-2.5 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white placeholder-white/30 min-h-[90px]"
             />
           </div>
         </div>
@@ -393,7 +393,7 @@ export const NewOperationForm: React.FC<NewOperationFormProps> = ({ db, lang, on
           <button
             type="submit"
             disabled={submitting || !!pidError || !!ageError || !!opDateError || !pid.trim()}
-            className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-2.5 px-6 rounded-xl font-semibold text-sm transition-colors cursor-pointer border border-emerald-400/20 shadow-lg text-center"
+            className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-2.5 px-6 rounded-xl font-semibold text-sm transition-colors cursor-pointer border border-brand-primary/20 shadow-lg text-center"
           >
             {submitting ? t.savingCase : t.saveCaseBtn}
           </button>

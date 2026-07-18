@@ -91,7 +91,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
               placeholder={isRTL ? "بحث برقم المريض..." : "Search milestones..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white/5 text-white placeholder-white/30 text-xs py-2 px-3 border border-white/10 rounded-xl focus:outline-none focus:border-emerald-500"
+              className="w-full bg-white/5 text-white placeholder-white/30 text-xs py-2 px-3 border border-white/10 rounded-xl focus:outline-none focus:border-brand-primary"
             />
           </div>
         </div>
@@ -107,7 +107,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                   <div className="flex items-center justify-between">
                     <button
                       onClick={() => onOpenDrawer(o.PatientID)}
-                      className="font-mono text-xs font-bold text-emerald-300 border-b border-dashed border-emerald-400 hover:border-solid transition-all text-left cursor-pointer"
+                      className="font-mono text-xs font-bold text-brand-primary-light border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                     >
                       {o.PatientID}
                     </button>
@@ -133,7 +133,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                           <select
                             value={val}
                             onChange={(e) => handleSelectChange(o.PatientID, key, e.target.value)}
-                            className={`w-full text-xs font-semibold py-1 px-2 border rounded-lg focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white ${
+                            className={`w-full text-xs font-semibold py-1 px-2 border rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white ${
                               isLate
                                 ? "border-rose-500/30 ring-2 ring-rose-500/10 focus:ring-0 text-rose-300 bg-rose-950/40"
                                 : "border-white/10 text-white"
@@ -161,9 +161,9 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                     <select
                       value={f.FinalOutcome}
                       onChange={(e) => handleSelectChange(o.PatientID, "FinalOutcome", e.target.value)}
-                      className={`text-xs font-semibold py-1.5 px-3 border rounded-lg focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white ${
+                      className={`text-xs font-semibold py-1.5 px-3 border rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white ${
                         f.FinalOutcome === "Success"
-                          ? "text-emerald-300 bg-emerald-950/40 border-emerald-500/30 font-bold"
+                          ? "text-brand-primary-light bg-brand-primary/10 border-brand-primary/20 font-bold"
                           : f.FinalOutcome === "Ongoing"
                           ? "text-white bg-white/5 border-white/10"
                           : "text-rose-300 bg-rose-950/40 border-rose-500/30 font-semibold"
@@ -211,7 +211,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                       <td className="py-3 px-6">
                         <button
                           onClick={() => onOpenDrawer(o.PatientID)}
-                          className="font-mono text-xs font-bold text-emerald-300 hover:text-emerald-200 border-b border-dashed border-emerald-400 hover:border-solid transition-all text-left cursor-pointer"
+                          className="font-mono text-xs font-bold text-brand-primary-light hover:text-brand-primary border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                         >
                           {o.PatientID}
                         </button>
@@ -231,7 +231,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                               <select
                                 value={val}
                                 onChange={(e) => handleSelectChange(o.PatientID, key, e.target.value)}
-                                className={`text-xs font-semibold py-1 px-2.5 border rounded-lg focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white ${
+                                className={`text-xs font-semibold py-1 px-2.5 border rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white ${
                                   isLate
                                     ? "border-rose-500/30 ring-2 ring-rose-500/10 focus:ring-0 text-rose-300 bg-rose-950/40"
                                     : "border-white/10 text-white"
@@ -257,9 +257,9 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                         <select
                           value={f.FinalOutcome}
                           onChange={(e) => handleSelectChange(o.PatientID, "FinalOutcome", e.target.value)}
-                          className={`text-xs font-semibold py-1.5 px-3 border rounded-lg focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white inline-block ${
+                          className={`text-xs font-semibold py-1.5 px-3 border rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white inline-block ${
                             f.FinalOutcome === "Success"
-                              ? "text-emerald-300 bg-emerald-950/40 border-emerald-500/30 font-bold"
+                              ? "text-brand-primary-light bg-brand-primary/10 border-brand-primary/20 font-bold"
                               : f.FinalOutcome === "Ongoing"
                               ? "text-white bg-white/5 border-white/10"
                               : "text-rose-300 bg-rose-950/40 border-rose-500/30 font-semibold"

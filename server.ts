@@ -23,6 +23,26 @@ const DEFAULT_PROCEDURES = [
   "Rhinoplasty",
   "Blepharoplasty",
   "Facelift / Neck Lift",
+  "Otoplasty",
+  "Brow Lift",
+  "Chin Augmentation",
+  "Lip Lift",
+  "Fat Grafting (Face)",
+  "Body Lift",
+  "Mommy Makeover",
+  "Labiaplasty",
+  "Surgical Scar Revision",
+  "Basal Cell Carcinoma Excision",
+  "Melanoma Excision",
+  "Skin Grafting",
+  "Local Flap Reconstruction",
+  "Carpal Tunnel Release",
+  "Trigger Finger Release",
+  "Breast Reconstruction (Implant)",
+  "Breast Reconstruction (Flap)",
+  "Panniculectomy",
+  "Septoplasty",
+  "Mentoplasty",
   "Other"
 ];
 const DEFAULT_CHECKLIST = [
@@ -45,6 +65,21 @@ const DEFAULT_COMPLICATIONS = [
   "Hypertrophic Scar/Keloid",
   "DVT/PE",
   "Fat Embolism",
+  "Epidermolysis",
+  "Suture Spit",
+  "Delayed Wound Healing",
+  "Allergic Reaction (Tape/Suture/Prep)",
+  "Paresthesia / Nerve Injury",
+  "Chronic Pain",
+  "Areolar/Nipple Sensation Loss",
+  "Nipple-Areola Complex Necrosis",
+  "Stretching of Scar",
+  "Hyperpigmentation / Discoloration",
+  "Pneumothorax",
+  "Pruritus (Severe)",
+  "Anesthesia Complication",
+  "Surgical Site Bleeding",
+  "Syncope / Vasovagal",
   "Other"
 ];
 const FU_STATUS = ["—", "Good", "Issue noted", "Concern — review", "Missed"];
@@ -115,7 +150,47 @@ const INITIAL_DB: Database = {
 async function readDB(): Promise<Database> {
   try {
     const data = await fs.readFile(DB_FILE, "utf-8");
-    return JSON.parse(data);
+    const db = JSON.parse(data);
+    
+    // Ensure all required sections exist
+    if (!db.lists) db.lists = { ...INITIAL_DB.lists };
+    if (!db.config) db.config = { ...INITIAL_DB.config };
+    if (!db.operations) db.operations = [];
+    if (!db.complications) db.complications = [];
+    if (!db.followup) db.followup = [];
+    if (!db.appointments) db.appointments = [];
+    if (!db.drains) db.drains = [];
+    if (!db.checks) db.checks = [];
+    if (!db.audit) db.audit = [];
+
+    // Auto-reindex _row property for robust deletion & update targeting
+    db.operations.forEach((o: any, i: number) => { o._row = i + 2; });
+    db.complications.forEach((c: any, i: number) => { c._row = i + 2; });
+    db.followup.forEach((f: any, i: number) => { f._row = i + 2; });
+    db.appointments.forEach((a: any, i: number) => { a._row = i + 2; });
+
+    // Sync lists with any missing defaults requested by the user
+    if (!db.lists.procedures) {
+      db.lists.procedures = [...DEFAULT_PROCEDURES];
+    } else {
+      DEFAULT_PROCEDURES.forEach((p) => {
+        if (!db.lists.procedures.includes(p)) {
+          db.lists.procedures.push(p);
+        }
+      });
+    }
+
+    if (!db.lists.complications) {
+      db.lists.complications = [...DEFAULT_COMPLICATIONS];
+    } else {
+      DEFAULT_COMPLICATIONS.forEach((c) => {
+        if (!db.lists.complications.includes(c)) {
+          db.lists.complications.push(c);
+        }
+      });
+    }
+
+    return db;
   } catch (error) {
     // If doesn't exist, write default and return
     await writeDB(INITIAL_DB);
@@ -600,16 +675,28 @@ app.post("/api/appointments/status", async (req, res) => {
   }
 });
 
-app.delete("/api/appointments/:row", async (req, res) => {
+app.delete("/api/appointments/:rowOrId", async (req, res) => {
   try {
-    const row = Number(req.params.row);
+    const rowOrId = req.params.rowOrId;
     const db = await readDB();
 
-    const targetAppt = db.appointments.find((a) => a._row === row);
+    const rowNum = Number(rowOrId);
+    let targetAppt;
+    if (!isNaN(rowNum)) {
+      targetAppt = db.appointments.find((a) => a._row === rowNum || a.id === rowOrId);
+    } else {
+      targetAppt = db.appointments.find((a) => a.id === rowOrId);
+    }
+
     const targetPid = targetAppt ? targetAppt.PatientID : "Unknown";
     const targetType = targetAppt ? targetAppt.Type : "Appointment";
 
-    db.appointments = db.appointments.filter((a) => a._row !== row);
+    if (!isNaN(rowNum)) {
+      db.appointments = db.appointments.filter((a) => a._row !== rowNum && a.id !== rowOrId);
+    } else {
+      db.appointments = db.appointments.filter((a) => a.id !== rowOrId);
+    }
+
     // Reindex rows
     db.appointments.forEach((a, i) => (a._row = i + 2));
 
@@ -684,31 +771,6 @@ app.get("/api/photos/:pid", async (req, res) => {
     res.json({ url: `https://drive.google.com/drive/search?q=${encodeURIComponent(pid)}` });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
-  }
-});
-
-// Google Apps Script download endpoints
-app.get("/api/apps-script/code", async (req, res) => {
-  try {
-    const codePath = path.join(process.cwd(), "google-apps-script", "Code.gs");
-    res.setHeader("Content-Type", "text/plain");
-    res.setHeader("Content-Disposition", "attachment; filename=Code.gs");
-    const content = await fs.readFile(codePath, "utf-8");
-    res.send(content);
-  } catch (err: any) {
-    res.status(500).json({ error: "Could not retrieve Code.gs: " + err.message });
-  }
-});
-
-app.get("/api/apps-script/index", async (req, res) => {
-  try {
-    const indexHTMLPath = path.join(process.cwd(), "google-apps-script", "Index.html");
-    res.setHeader("Content-Type", "text/html");
-    res.setHeader("Content-Disposition", "attachment; filename=Index.html");
-    const content = await fs.readFile(indexHTMLPath, "utf-8");
-    res.send(content);
-  } catch (err: any) {
-    res.status(500).json({ error: "Could not retrieve Index.html: " + err.message });
   }
 });
 

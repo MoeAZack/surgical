@@ -51,6 +51,21 @@ export default function App() {
     localStorage.setItem("themeColor", color);
   };
 
+  // State for the custom React-based quick add prompt dialog
+  const [quickAddPrompt, setQuickAddPrompt] = useState<{
+    kind: "procedures" | "surgeons" | "complications";
+    selectId: string;
+    resolve: (value: string | undefined) => void;
+  } | null>(null);
+  const [quickAddValue, setQuickAddValue] = useState("");
+
+  // Synchronize theme class on document.body for dynamic backgrounds
+  useEffect(() => {
+    const classes = Array.from(document.body.classList).filter(c => c.startsWith("theme-"));
+    classes.forEach(c => document.body.classList.remove(c));
+    document.body.classList.add(`theme-${themeColor}`);
+  }, [themeColor]);
+
   // Chained Actions Proposal state
   const [chainPrompt, setChainPrompt] = useState<{
     type: "schedule-wound-check" | "drain-removal-followup" | "mark-drain-removed";
@@ -443,10 +458,10 @@ export default function App() {
     }
   };
 
-  const handleDeleteAppointment = async (row: number) => {
+  const handleDeleteAppointment = async (rowOrId: number | string) => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/appointments/${row}`, {
+      const res = await fetch(`/api/appointments/${rowOrId}`, {
         method: "DELETE"
       });
       const data = await res.json();
@@ -535,24 +550,48 @@ export default function App() {
     }
   };
 
-  const handleQuickAddList = async (kind: "procedures" | "surgeons" | "complications", selectId: string) => {
-    const label = { procedures: "procedure", surgeons: "surgeon", complications: "complication type" }[kind] || "item";
-    const v = (window.prompt(`Add new surgical ${label} name:`) || "").trim();
-    if (!v || !db) return;
+  const handleQuickAddList = (kind: "procedures" | "surgeons" | "complications", selectId: string): Promise<string | undefined> => {
+    return new Promise((resolve) => {
+      setQuickAddValue("");
+      setQuickAddPrompt({ kind, selectId, resolve });
+    });
+  };
+
+  const handleConfirmQuickAdd = async () => {
+    if (!quickAddPrompt || !db) return;
+    const v = quickAddValue.trim();
+    if (!v) {
+      quickAddPrompt.resolve(undefined);
+      setQuickAddPrompt(null);
+      return;
+    }
 
     let targetType: "procedures" | "surgeons" | "checklist" | "complications" = "procedures";
-    if (kind === "surgeons") targetType = "surgeons";
-    else if (kind === "complications") targetType = "complications";
+    if (quickAddPrompt.kind === "surgeons") targetType = "surgeons";
+    else if (quickAddPrompt.kind === "complications") targetType = "complications";
 
     const arr = [...(db.lists as any)[targetType]];
     if (!arr.some((x) => x.toLowerCase() === v.toLowerCase())) {
       arr.push(v);
     }
-    await handleSaveList(targetType, arr);
-    setTimeout(() => {
-      const el = document.getElementById(selectId) as HTMLSelectElement;
-      if (el) el.value = v;
-    }, 100);
+    setBusy(true);
+    try {
+      await handleSaveList(targetType, arr);
+      setTimeout(() => {
+        const el = document.getElementById(quickAddPrompt.selectId) as HTMLSelectElement;
+        if (el) {
+          el.value = v;
+          const event = new Event('change', { bubbles: true });
+          el.dispatchEvent(event);
+        }
+      }, 100);
+      quickAddPrompt.resolve(v);
+    } catch (err) {
+      quickAddPrompt.resolve(undefined);
+    } finally {
+      setBusy(false);
+      setQuickAddPrompt(null);
+    }
   };
 
   // Switch tabs & scroll to top
@@ -748,7 +787,7 @@ export default function App() {
                 <span className="text-[10.5px] text-white/40 block uppercase font-bold tracking-wider leading-none">
                   {t.loggedInAs}
                 </span>
-                <span className="text-xs font-mono font-semibold text-emerald-400 truncate block mt-1 leading-none">
+                <span className="text-xs font-mono font-semibold text-brand-primary truncate block mt-1 leading-none">
                   {db.user}
                 </span>
               </div>
@@ -867,10 +906,10 @@ export default function App() {
           className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl shadow-2xl font-semibold text-xs transition-all duration-300 z-50 flex items-center gap-2 border backdrop-blur-md ${
             toast.isError
               ? "bg-rose-950/80 border-rose-500 text-rose-200"
-              : "bg-emerald-950/80 border-emerald-500 text-emerald-200"
+              : "bg-brand-primary/10 border-brand-primary/30 text-brand-primary-light"
           }`}
         >
-          {toast.isError ? <AlertTriangle className="w-4.5 h-4.5 text-rose-400" /> : <Clock className="w-4.5 h-4.5 text-emerald-400" />}
+          {toast.isError ? <AlertTriangle className="w-4.5 h-4.5 text-rose-400" /> : <Clock className="w-4.5 h-4.5 text-brand-primary" />}
           <span>{toast.message}</span>
         </div>
       )}
@@ -915,7 +954,7 @@ export default function App() {
       {chainPrompt && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#061E1B]/95 border border-white/20 p-6 rounded-2xl max-w-sm w-full shadow-2xl text-white animate-fade-in text-center space-y-4">
-            <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-2 text-xl font-bold">
+            <div className="w-12 h-12 bg-brand-primary/10 border border-brand-primary/30 text-brand-primary rounded-full flex items-center justify-center mx-auto mb-2 text-xl font-bold">
               ⇄
             </div>
             <h3 className="font-display font-bold text-lg leading-snug">
@@ -942,9 +981,73 @@ export default function App() {
               </button>
               <button
                 onClick={handleConfirmChain}
-                className="flex-1 py-2 px-4 bg-emerald-600 hover:bg-emerald-500 transition-colors rounded-xl text-xs font-bold text-white cursor-pointer border border-emerald-400/30 shadow-lg shadow-emerald-600/10"
+                className="flex-1 py-2 px-4 bg-brand-primary hover:bg-brand-primary-hover transition-colors rounded-xl text-xs font-bold text-white cursor-pointer border border-brand-primary/30 shadow-lg shadow-brand-primary/10"
               >
                 {t.confirmBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM QUICK-ADD PROMPT DIALOG */}
+      {quickAddPrompt && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-brand-bg/95 border border-white/10 p-6 rounded-2xl max-w-sm w-full shadow-2xl text-white animate-fade-in space-y-4">
+            <div>
+              <span className="font-mono text-[10px] font-bold text-brand-primary uppercase tracking-wider block">
+                Quick Add Entry
+              </span>
+              <h3 className="font-display font-bold text-base mt-1 text-white">
+                Add New {quickAddPrompt.kind === "procedures" ? "Surgical Procedure" : quickAddPrompt.kind === "surgeons" ? "Surgeon" : "Complication Type"}
+              </h3>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1.5">
+                Name / Label
+              </label>
+              <input
+                autoFocus
+                type="text"
+                value={quickAddValue}
+                onChange={(e) => setQuickAddValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleConfirmQuickAdd();
+                  } else if (e.key === "Escape") {
+                    quickAddPrompt.resolve(undefined);
+                    setQuickAddPrompt(null);
+                  }
+                }}
+                placeholder={
+                  quickAddPrompt.kind === "procedures"
+                    ? "e.g., Facelift"
+                    : quickAddPrompt.kind === "surgeons"
+                    ? "e.g., Dr. Jane Smith"
+                    : "e.g., Seroma"
+                }
+                className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white"
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  quickAddPrompt.resolve(undefined);
+                  setQuickAddPrompt(null);
+                }}
+                className="flex-1 py-2 px-4 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 transition-colors rounded-xl text-xs font-semibold text-white/60 hover:text-white cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmQuickAdd}
+                disabled={!quickAddValue.trim()}
+                className="flex-1 py-2 px-4 bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/5 disabled:text-white/20 transition-colors rounded-xl text-xs font-bold text-slate-950 cursor-pointer border border-brand-primary-light/20"
+              >
+                Add Option
               </button>
             </div>
           </div>

@@ -132,7 +132,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
     const val = f ? f.FinalOutcome : "Ongoing";
 
     let cls = "bg-white/10 text-white/60 border border-white/10";
-    if (val === "Success") cls = "bg-emerald-950/60 text-emerald-300 border border-emerald-500/30";
+    if (val === "Success") cls = "bg-brand-primary/10 text-brand-primary-light border border-brand-primary/20";
     else if (val === "Lost to follow-up") cls = "bg-amber-950/60 text-amber-300 border border-amber-500/30";
     else if (val !== "Ongoing" && val !== "—") cls = "bg-rose-950/60 text-rose-300 border border-rose-500/30";
 
@@ -159,7 +159,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
         </div>
         <button
           onClick={onNavigateToNew}
-          className={`flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white py-2 px-4 rounded-xl font-semibold text-sm transition-colors shadow-lg self-start sm:self-auto cursor-pointer border border-emerald-400/20 ${
+          className={`flex items-center gap-2 bg-brand-primary hover:bg-brand-primary-hover text-white py-2 px-4 rounded-xl font-semibold text-sm transition-colors shadow-lg self-start sm:self-auto cursor-pointer border border-brand-primary/20 ${
             isRTL ? "flex-row-reverse" : ""
           }`}
         >
@@ -175,7 +175,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
             <h3 className="font-display font-semibold text-white text-base">{t.surgicalRecords}</h3>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 transition-colors text-xs font-semibold cursor-pointer text-emerald-400 ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 transition-colors text-xs font-semibold cursor-pointer text-brand-primary ${
                 isRTL ? "flex-row-reverse" : ""
               }`}
             >
@@ -193,7 +193,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
               onChange={(e) => setSearch(e.target.value)}
               className={`w-full ${
                 isRTL ? "pr-9 pl-4 text-right" : "pl-9 pr-4 text-left"
-              } py-2 border border-white/10 bg-white/5 rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-500 focus:bg-white/10 focus:ring-1 focus:ring-emerald-500/30 transition-all`}
+              } py-2 border border-white/10 bg-white/5 rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-primary focus:bg-white/10 focus:ring-1 focus:ring-brand-primary/30 transition-all`}
             />
           </div>
         </div>
@@ -209,7 +209,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
               <select
                 value={surgeonFilter}
                 onChange={(e) => setSurgeonFilter(e.target.value)}
-                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-primary cursor-pointer"
               >
                 <option value="">{t.allSurgeons}</option>
                 {surgeons.map((s) => (
@@ -228,7 +228,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
               <select
                 value={procedureFilter}
                 onChange={(e) => setProcedureFilter(e.target.value)}
-                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-primary cursor-pointer"
               >
                 <option value="">{t.allProcedures}</option>
                 {procedures.map((p) => (
@@ -247,7 +247,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
               <select
                 value={outcomeFilter}
                 onChange={(e) => setOutcomeFilter(e.target.value)}
-                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-primary cursor-pointer"
               >
                 <option value="">{t.allOutcomes}</option>
                 {outcomes.map((o) => (
@@ -266,7 +266,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
               <select
                 value={drainFilter}
                 onChange={(e) => setDrainFilter(e.target.value)}
-                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-primary cursor-pointer"
               >
                 <option value="">{t.allDrains}</option>
                 <option value="In situ">In Situ</option>
@@ -284,7 +284,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-primary"
               />
             </div>
 
@@ -297,7 +297,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                className="w-full bg-[#08221E] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-primary"
               />
             </div>
 
@@ -346,14 +346,14 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
                         <button
                           onClick={() => onOpenEdit(o._row)}
                           title="Edit"
-                          className="p-1.5 border border-white/10 rounded-lg hover:border-emerald-500 hover:text-emerald-300 hover:bg-emerald-500/10 transition-all text-white/60 cursor-pointer"
+                          className="p-1.5 border border-white/10 rounded-lg hover:border-brand-primary hover:text-brand-primary-light hover:bg-brand-primary/10 transition-all text-white/60 cursor-pointer"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => onOpenPhotos(o.PatientID)}
                           title="Photos"
-                          className="p-1.5 border border-white/10 rounded-lg hover:border-emerald-500 hover:text-emerald-300 hover:bg-emerald-500/10 transition-all text-white/60 cursor-pointer"
+                          className="p-1.5 border border-white/10 rounded-lg hover:border-brand-primary hover:text-brand-primary-light hover:bg-brand-primary/10 transition-all text-white/60 cursor-pointer"
                         >
                           <ImageIcon className="w-3.5 h-3.5" />
                         </button>
@@ -362,7 +362,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
                     <td className="py-3 px-6 text-right">
                       <button
                         onClick={() => onOpenDrawer(o.PatientID)}
-                        className="font-mono text-xs font-bold text-emerald-300 hover:text-emerald-200 border-b border-dashed border-emerald-400 hover:border-solid transition-all text-left cursor-pointer"
+                        className="font-mono text-xs font-bold text-brand-primary-light hover:text-brand-primary border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                       >
                         {o.PatientID}
                       </button>

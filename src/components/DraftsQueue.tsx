@@ -356,9 +356,9 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className={isRTL ? "text-right" : "text-left"}>
           <h2 className="text-3xl font-display font-semibold text-white tracking-tight flex items-center gap-2">
-            <Archive className="w-8 h-8 text-emerald-400" />
+            <Archive className="w-8 h-8 text-brand-primary" />
             <span>{t.tabDraftsQueue}</span>
-            <span className="text-xs bg-emerald-500/20 text-emerald-300 font-mono py-0.5 px-2 rounded-full border border-emerald-500/20">
+            <span className="text-xs bg-brand-primary/10 text-brand-primary-light font-mono py-0.5 px-2 rounded-full border border-brand-primary/20">
               {drafts.length}
             </span>
           </h2>
@@ -373,7 +373,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
           <button
             onClick={handleSyncAll}
             disabled={syncingAll}
-            className={`flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-2.5 px-5 rounded-xl font-semibold text-sm transition-all shadow-lg self-start sm:self-auto cursor-pointer border border-emerald-400/20 disabled:opacity-55 ${
+            className={`flex items-center gap-2 bg-gradient-to-r from-brand-primary to-brand-primary-hover text-white py-2.5 px-5 rounded-xl font-semibold text-sm transition-all shadow-lg self-start sm:self-auto cursor-pointer border border-brand-primary/20 disabled:opacity-55 ${
               isRTL ? "flex-row-reverse" : ""
             }`}
           >
@@ -386,7 +386,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
       {/* Main Drafts Cards Grid */}
       {drafts.length === 0 ? (
         <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4">
-          <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto opacity-80" />
+          <CheckCircle className="w-12 h-12 text-brand-primary mx-auto opacity-80" />
           <h3 className="font-display font-bold text-white text-lg">{isRTL ? "قائمة المسودات فارغة" : "Pristine Queue"}</h3>
           <p className="text-sm text-white/50">{t.noDraftsMessage}</p>
         </div>
@@ -402,12 +402,12 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                 className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-white/20 transition-all flex flex-col justify-between space-y-4 shadow-xl relative overflow-hidden group"
               >
                 {/* Draft Badge type */}
-                <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-emerald-500/20 to-teal-500/20" />
+                <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-brand-primary/20 to-brand-primary/10" />
 
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <span className={`inline-block text-[10px] uppercase font-bold tracking-wider py-0.5 px-2 rounded-full ${
-                      isOp ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" : "bg-rose-500/10 text-rose-300 border border-rose-500/20"
+                      isOp ? "bg-brand-primary/10 text-brand-primary-light border border-brand-primary/20" : "bg-rose-500/10 text-rose-300 border border-rose-500/20"
                     }`}>
                       {isOp ? (isRTL ? "عملية جراحية" : "Surgical Intake") : (isRTL ? "مضاعفة جراحية" : "Complication Event")}
                     </span>
@@ -485,7 +485,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                   <button
                     onClick={() => handleSyncDraft(d)}
                     disabled={syncingAll || isCurrentSyncing}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 text-white font-semibold py-2 px-4 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 text-white font-semibold py-2 px-4 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     {isCurrentSyncing ? (
                       <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -513,9 +513,9 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
             </button>
 
             <h3 className="text-xl font-display font-semibold text-white mb-2 flex items-center gap-2">
-              <FolderPlus className="w-5 h-5 text-emerald-400" />
+              <FolderPlus className="w-5 h-5 text-brand-primary" />
               <span>{t.editDraftTitle}</span>
-              <span className="text-xs bg-emerald-500/20 text-emerald-300 font-mono py-0.5 px-2 rounded-full border border-emerald-500/20">
+              <span className="text-xs bg-brand-primary/10 text-brand-primary-light font-mono py-0.5 px-2 rounded-full border border-brand-primary/20">
                 {editingDraft.data.PatientID || "Draft"}
               </span>
             </h3>
@@ -542,7 +542,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                     type="text"
                     value={editPid}
                     onChange={(e) => setEditPid(e.target.value)}
-                    className="w-full py-2 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-emerald-500 rounded-xl text-sm font-semibold text-white uppercase"
+                    className="w-full py-2 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-brand-primary rounded-xl text-sm font-semibold text-white uppercase"
                     required
                   />
                 </div>
@@ -557,7 +557,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                         type="number"
                         value={editAge}
                         onChange={(e) => setEditAge(e.target.value ? Number(e.target.value) : "")}
-                        className="w-full py-2 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-emerald-500 rounded-xl text-sm text-white"
+                        className="w-full py-2 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-brand-primary rounded-xl text-sm text-white"
                       />
                     </div>
 
@@ -569,7 +569,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                         type="date"
                         value={editOpDate}
                         onChange={(e) => setEditOpDate(e.target.value)}
-                        className="w-full py-2 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-emerald-500 rounded-xl text-sm text-white"
+                        className="w-full py-2 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-brand-primary rounded-xl text-sm text-white"
                         required
                       />
                     </div>
@@ -581,7 +581,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                       <select
                         value={editDrain ? "Yes" : "No"}
                         onChange={(e) => setEditDrain(e.target.value === "Yes")}
-                        className="w-full py-2 px-3 border border-white/10 bg-[#0A2E2A] focus:outline-none focus:border-emerald-500 rounded-xl text-sm text-white"
+                        className="w-full py-2 px-3 border border-white/10 bg-[#0A2E2A] focus:outline-none focus:border-brand-primary rounded-xl text-sm text-white"
                       >
                         <option value="No">No</option>
                         <option value="Yes">Yes</option>
@@ -595,7 +595,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                       <select
                         value={editProcedure}
                         onChange={(e) => setEditProcedure(e.target.value)}
-                        className="w-full py-2 px-3 border border-white/10 bg-[#0A2E2A] focus:outline-none focus:border-emerald-500 rounded-xl text-sm text-white"
+                        className="w-full py-2 px-3 border border-white/10 bg-[#0A2E2A] focus:outline-none focus:border-brand-primary rounded-xl text-sm text-white"
                       >
                         {db.lists.procedures.map((p) => (
                           <option key={p} value={p}>{p}</option>
@@ -610,7 +610,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                       <select
                         value={editSurgeon}
                         onChange={(e) => setEditSurgeon(e.target.value)}
-                        className="w-full py-2 px-3 border border-white/10 bg-[#0A2E2A] focus:outline-none focus:border-emerald-500 rounded-xl text-sm text-white"
+                        className="w-full py-2 px-3 border border-white/10 bg-[#0A2E2A] focus:outline-none focus:border-brand-primary rounded-xl text-sm text-white"
                       >
                         {db.lists.surgeons.map((s) => (
                           <option key={s} value={s}>{s}</option>
@@ -627,7 +627,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                       <select
                         value={editCompName}
                         onChange={(e) => setEditCompName(e.target.value)}
-                        className="w-full py-2 px-3 border border-white/10 bg-[#0A2E2A] focus:outline-none focus:border-emerald-500 rounded-xl text-sm text-white"
+                        className="w-full py-2 px-3 border border-white/10 bg-[#0A2E2A] focus:outline-none focus:border-brand-primary rounded-xl text-sm text-white"
                       >
                         {db.lists.complications.map((c) => (
                           <option key={c} value={c}>{c}</option>
@@ -642,7 +642,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                       <select
                         value={editCompGrade}
                         onChange={(e) => setEditCompGrade(e.target.value)}
-                        className="w-full py-2 px-3 border border-white/10 bg-[#0A2E2A] focus:outline-none focus:border-emerald-500 rounded-xl text-sm text-white"
+                        className="w-full py-2 px-3 border border-white/10 bg-[#0A2E2A] focus:outline-none focus:border-brand-primary rounded-xl text-sm text-white"
                       >
                         <option value="Grade I">Grade I</option>
                         <option value="Grade II">Grade II</option>
@@ -662,7 +662,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                         type="date"
                         value={editCompDate}
                         onChange={(e) => setEditCompDate(e.target.value)}
-                        className="w-full py-2 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-emerald-500 rounded-xl text-sm text-white"
+                        className="w-full py-2 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-brand-primary rounded-xl text-sm text-white"
                         required
                       />
                     </div>
@@ -681,7 +681,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                         value={editCompMgmt}
                         onChange={(e) => setEditCompMgmt(e.target.value)}
                         placeholder={t.managementPlaceholder}
-                        className="w-full py-2.5 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-emerald-500 rounded-xl text-sm text-white min-h-[70px]"
+                        className="w-full py-2.5 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-brand-primary rounded-xl text-sm text-white min-h-[70px]"
                       />
                     </div>
                   </>
@@ -701,7 +701,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                     value={editNotes}
                     onChange={(e) => setEditNotes(e.target.value)}
                     placeholder={t.notesPlaceholder}
-                    className="w-full py-2.5 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-emerald-500 rounded-xl text-sm text-white min-h-[80px]"
+                    className="w-full py-2.5 px-3 border border-white/10 bg-white/5 focus:outline-none focus:border-brand-primary rounded-xl text-sm text-white min-h-[80px]"
                   />
                 </div>
               </div>
@@ -716,7 +716,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-6 rounded-xl text-sm cursor-pointer border border-emerald-400/20"
+                  className="bg-brand-primary hover:bg-brand-primary-hover text-white font-semibold py-2.5 px-6 rounded-xl text-sm cursor-pointer border border-brand-primary/20"
                 >
                   {isRTL ? "حفظ التغييرات" : "Save Changes"}
                 </button>

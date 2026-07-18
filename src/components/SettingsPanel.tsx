@@ -47,36 +47,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   // Backup states
   const [uploadingBackup, setUploadingBackup] = useState(false);
 
-  // Google Apps Script migration preview states
-  const [activeScriptPreview, setActiveScriptPreview] = useState<"gs" | "html">("gs");
-  const [previewGs, setPreviewGs] = useState("Loading Code.gs file contents...");
-  const [previewHtml, setPreviewHtml] = useState("Loading Index.html file contents...");
-
-  useEffect(() => {
-    const fetchScript = async () => {
-      try {
-        if (activeScriptPreview === "gs" && previewGs.startsWith("Loading")) {
-          const res = await fetch("/api/apps-script/code");
-          const text = await res.text();
-          setPreviewGs(text);
-        } else if (activeScriptPreview === "html" && previewHtml.startsWith("Loading")) {
-          const res = await fetch("/api/apps-script/index");
-          const text = await res.text();
-          setPreviewHtml(text);
-        }
-      } catch (err: any) {
-        console.error("Failed to fetch script preview:", err);
-      }
-    };
-    fetchScript();
-  }, [activeScriptPreview]);
-
-  const handleCopySnippet = () => {
-    const code = activeScriptPreview === "gs" ? previewGs : previewHtml;
-    navigator.clipboard.writeText(code);
-    alert(`${activeScriptPreview === "gs" ? "Code.gs" : "Index.html"} successfully copied to clipboard!`);
-  };
-
   // Handle saving configuration
   const handleConfigSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,7 +139,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {/* Alert & Schedule Config Form */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl lg:col-span-2">
           <h3 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-2 mb-5">
-            <Sliders className="w-4 h-4 text-emerald-400" /> Alerts & Milestone Schedule
+            <Sliders className="w-4 h-4 text-brand-primary" /> Alerts & Milestone Schedule
           </h3>
 
           <form onSubmit={handleConfigSubmit} className="space-y-5">
@@ -184,7 +154,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max="120"
                   value={drainAlert}
                   onChange={(e) => setDrainAlert(Number(e.target.value))}
-                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white/5 text-white"
+                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white"
                   required
                 />
               </div>
@@ -199,7 +169,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max="120"
                   value={fu1}
                   onChange={(e) => setFu1(Number(e.target.value))}
-                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white/5 text-white"
+                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white"
                   required
                 />
               </div>
@@ -214,7 +184,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max="120"
                   value={fu2}
                   onChange={(e) => setFu2(Number(e.target.value))}
-                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white/5 text-white"
+                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white"
                   required
                 />
               </div>
@@ -229,7 +199,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max="120"
                   value={fu3}
                   onChange={(e) => setFu3(Number(e.target.value))}
-                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white/5 text-white"
+                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white"
                   required
                 />
               </div>
@@ -244,7 +214,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   max="120"
                   value={fu4}
                   onChange={(e) => setFu4(Number(e.target.value))}
-                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white/5 text-white"
+                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white"
                   required
                 />
               </div>
@@ -254,7 +224,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <button
                 type="submit"
                 disabled={savingConfig}
-                className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-2 px-5 rounded-xl font-semibold text-sm transition-colors cursor-pointer border border-emerald-400/20 shadow-lg"
+                className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-2 px-5 rounded-xl font-semibold text-sm transition-colors cursor-pointer border border-brand-primary/20 shadow-lg"
               >
                 {savingConfig ? "Saving Schedule..." : "Save Config Schedule"}
               </button>
@@ -266,7 +236,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
           <div>
             <h3 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-2 mb-4">
-              <LinkIcon className="w-4 h-4 text-emerald-400" /> Utility & Data Recovery
+              <LinkIcon className="w-4 h-4 text-brand-primary" /> Utility & Data Recovery
             </h3>
             <p className="text-xs text-white/60 leading-normal">
               Standalone utility configurations. Backup and restore database files locally in JSON format to safeguard against ephemeral resets.
@@ -275,14 +245,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <div className="space-y-2 mt-4">
               <a
                 href="/api/backup/download"
-                className="w-full border border-white/10 hover:border-emerald-500/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className="w-full border border-white/10 hover:border-brand-primary/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
-                <Download className="w-4 h-4 shrink-0 text-emerald-400" />
+                <Download className="w-4 h-4 shrink-0 text-brand-primary" />
                 Download Backup (.json)
               </a>
 
-              <label className="w-full border border-white/10 hover:border-emerald-500/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer relative">
-                <Upload className="w-4 h-4 shrink-0 text-emerald-400" />
+              <label className="w-full border border-white/10 hover:border-brand-primary/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer relative">
+                <Upload className="w-4 h-4 shrink-0 text-brand-primary" />
                 <span>{uploadingBackup ? "Uploading..." : "Upload Backup (.json)"}</span>
                 <input
                   type="file"
@@ -342,7 +312,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {/* Surgeons list */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
           <h3 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-2 mb-4">
-            <Users className="w-4 h-4 text-emerald-400" /> Surgeons List
+            <Users className="w-4 h-4 text-brand-primary" /> Surgeons List
           </h3>
 
           <div className="space-y-2 max-h-[220px] overflow-y-auto mb-4 pr-1">
@@ -352,7 +322,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   type="text"
                   value={s}
                   onChange={(e) => changeLocalItem(i, e.target.value, setSurgeons)}
-                  className="flex-1 py-1 px-3 border border-white/10 focus:border-emerald-500 bg-white/5 text-white rounded-lg text-sm focus:outline-none"
+                  className="flex-1 py-1 px-3 border border-white/10 focus:border-brand-primary bg-white/5 text-white rounded-lg text-sm focus:outline-none"
                 />
                 <button
                   type="button"
@@ -371,7 +341,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               placeholder="New surgeon..."
               value={newSurgeon}
               onChange={(e) => setNewSurgeon(e.target.value)}
-              className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-emerald-500 bg-white/5 text-white"
+              className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-brand-primary bg-white/5 text-white"
             />
             <button
               type="button"
@@ -387,7 +357,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               type="button"
               onClick={() => handleSaveList("surgeons", surgeons)}
               disabled={savingListType === "surgeons"}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-emerald-400/20 shadow-lg"
+              className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-brand-primary/20 shadow-lg"
             >
               {savingListType === "surgeons" ? "Saving..." : "Save Surgeons"}
             </button>
@@ -397,7 +367,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {/* Procedures list */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
           <h3 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-2 mb-4">
-            <Clipboard className="w-4 h-4 text-emerald-400" /> Surgical Procedures
+            <Clipboard className="w-4 h-4 text-brand-primary" /> Surgical Procedures
           </h3>
 
           <div className="space-y-2 max-h-[220px] overflow-y-auto mb-4 pr-1">
@@ -407,7 +377,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   type="text"
                   value={p}
                   onChange={(e) => changeLocalItem(i, e.target.value, setProcedures)}
-                  className="flex-1 py-1 px-3 border border-white/10 focus:border-emerald-500 bg-white/5 text-white rounded-lg text-sm focus:outline-none"
+                  className="flex-1 py-1 px-3 border border-white/10 focus:border-brand-primary bg-white/5 text-white rounded-lg text-sm focus:outline-none"
                 />
                 <button
                   type="button"
@@ -426,7 +396,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               placeholder="New procedure..."
               value={newProcedure}
               onChange={(e) => setNewProcedure(e.target.value)}
-              className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-emerald-500 bg-white/5 text-white"
+              className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-brand-primary bg-white/5 text-white"
             />
             <button
               type="button"
@@ -442,7 +412,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               type="button"
               onClick={() => handleSaveList("procedures", procedures)}
               disabled={savingListType === "procedures"}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-emerald-400/20 shadow-lg"
+              className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-brand-primary/20 shadow-lg"
             >
               {savingListType === "procedures" ? "Saving..." : "Save Procedures"}
             </button>
@@ -452,7 +422,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {/* Checklist list */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
           <h3 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-2 mb-4">
-            <ListChecks className="w-4 h-4 text-emerald-400" /> Patient Checklist Items
+            <ListChecks className="w-4 h-4 text-brand-primary" /> Patient Checklist Items
           </h3>
 
           <div className="space-y-2 max-h-[220px] overflow-y-auto mb-4 pr-1">
@@ -462,7 +432,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   type="text"
                   value={c}
                   onChange={(e) => changeLocalItem(i, e.target.value, setChecklist)}
-                  className="flex-1 py-1 px-3 border border-white/10 focus:border-emerald-500 bg-white/5 text-white rounded-lg text-sm focus:outline-none"
+                  className="flex-1 py-1 px-3 border border-white/10 focus:border-brand-primary bg-white/5 text-white rounded-lg text-sm focus:outline-none"
                 />
                 <button
                   type="button"
@@ -481,7 +451,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               placeholder="New checklist item..."
               value={newCheckItem}
               onChange={(e) => setNewCheckItem(e.target.value)}
-              className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-emerald-500 bg-white/5 text-white"
+              className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-brand-primary bg-white/5 text-white"
             />
             <button
               type="button"
@@ -501,7 +471,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               type="button"
               onClick={() => handleSaveList("checklist", checklist)}
               disabled={savingListType === "checklist"}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-emerald-400/20 shadow-lg"
+              className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-brand-primary/20 shadow-lg"
             >
               {savingListType === "checklist" ? "Saving..." : "Save Checklist"}
             </button>
@@ -511,7 +481,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {/* Complications list */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
           <h3 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-2 mb-4">
-            <AlertTriangle className="w-4 h-4 text-emerald-400" /> Complication Types
+            <AlertTriangle className="w-4 h-4 text-brand-primary" /> Complication Types
           </h3>
 
           <div className="space-y-2 max-h-[220px] overflow-y-auto mb-4 pr-1">
@@ -521,7 +491,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   type="text"
                   value={c}
                   onChange={(e) => changeLocalItem(i, e.target.value, setComplications)}
-                  className="flex-1 py-1 px-3 border border-white/10 focus:border-emerald-500 bg-white/5 text-white rounded-lg text-sm focus:outline-none"
+                  className="flex-1 py-1 px-3 border border-white/10 focus:border-brand-primary bg-white/5 text-white rounded-lg text-sm focus:outline-none"
                 />
                 <button
                   type="button"
@@ -540,7 +510,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               placeholder="New complication..."
               value={newComplication}
               onChange={(e) => setNewComplication(e.target.value)}
-              className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-emerald-500 bg-white/5 text-white"
+              className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-brand-primary bg-white/5 text-white"
             />
             <button
               type="button"
@@ -556,7 +526,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               type="button"
               onClick={() => handleSaveList("complications", complications)}
               disabled={savingListType === "complications"}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-emerald-400/20 shadow-lg"
+              className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-brand-primary/20 shadow-lg"
             >
               {savingListType === "complications" ? "Saving..." : "Save Complications"}
             </button>
@@ -564,98 +534,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
       </div>
 
-      {/* Google Sheets / Apps Script Integration Guide */}
-      <div className="bg-[#051C1A] border border-emerald-500/20 rounded-2xl p-6 shadow-xl space-y-6">
-        <div>
-          <h3 className="font-display font-semibold text-lg text-white flex items-center gap-2">
-            <LinkIcon className="w-5 h-5 text-emerald-400" /> Google Sheets & Apps Script Migration
-          </h3>
-          <p className="text-xs text-white/60 mt-1 leading-normal">
-            You can run this exact Surgical Case Tracker inside your Google Sheets account as a free, highly secure, full-scale cloud app. All operations, complications, calendar schedules, and checklists sync live into your personal spreadsheet columns automatically.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-xs leading-relaxed">
-          {/* Instructions Column */}
-          <div className="space-y-4 lg:col-span-1">
-            <h4 className="font-semibold text-emerald-400 uppercase tracking-wider text-[10px]">Setup Guide (4 Steps)</h4>
-            <ol className="list-decimal pl-4 space-y-2 text-white/80">
-              <li>Create a new Google Sheet inside your Google Drive.</li>
-              <li>Navigate to <strong className="text-white font-semibold">Extensions &gt; Apps Script</strong> from the sheet's top menu.</li>
-              <li>Create two files inside the editor:
-                <ul className="list-disc pl-4 mt-1 space-y-1 text-white/60">
-                  <li><strong className="text-emerald-400">Code.gs</strong> (replaces standard code)</li>
-                  <li><strong className="text-emerald-400">Index.html</strong> (HTML file template)</li>
-                </ul>
-              </li>
-              <li>Click <strong className="text-white font-semibold">Deploy &gt; New Deployment</strong>, select <strong className="text-white font-semibold">Web App</strong>, set "Who has access" to <strong className="text-white font-semibold">Anyone</strong>, and authorize the Google account. Copy your web app URL!</li>
-            </ol>
-
-            <div className="pt-2">
-              <h5 className="font-semibold text-white mb-2">Download Live Script Files</h5>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <a
-                  href="/api/apps-script/code"
-                  className="flex-1 text-center bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-3 rounded-xl transition-all border border-emerald-400/20 shadow-md cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5" /> Download Code.gs
-                </a>
-                <a
-                  href="/api/apps-script/index"
-                  className="flex-1 text-center bg-white/10 hover:bg-white/15 text-white border border-white/10 font-semibold py-2 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5" /> Download Index.html
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Code Viewer Panel */}
-          <div className="lg:col-span-2 bg-black/40 border border-white/10 rounded-2xl p-4 flex flex-col justify-between min-h-[300px]">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveScriptPreview("gs")}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    activeScriptPreview === "gs" ? "bg-white/15 text-white font-bold" : "text-white/50 hover:text-white"
-                  }`}
-                >
-                  Code.gs
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveScriptPreview("html")}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    activeScriptPreview === "html" ? "bg-white/15 text-white font-bold" : "text-white/50 hover:text-white"
-                  }`}
-                >
-                  Index.html
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCopySnippet}
-                className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold underline cursor-pointer"
-              >
-                Copy Full Code
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto max-h-[220px]">
-              <pre className="text-[10px] font-mono text-emerald-300/80 p-2 bg-black/20 rounded-lg select-text overflow-x-auto whitespace-pre">
-                {activeScriptPreview === "gs" ? previewGs : previewHtml}
-              </pre>
-            </div>
-
-            <div className="text-[10px] text-white/40 pt-2 border-t border-white/5 flex items-center justify-between">
-              <span>* Code.gs acts as your database, and Index.html contains the full React layout.</span>
-              <span className="text-emerald-400 font-bold">Files precompiled & ready ✓</span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

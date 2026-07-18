@@ -38,7 +38,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
   const [typeInput, setTypeInput] = useState("");
   const [notesInput, setNotesInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [deletingRow, setDeletingRow] = useState<number | null>(null);
+  const [deletingRow, setDeletingRow] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedDateFromDash) {
@@ -83,7 +83,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
   };
 
   const getStatusColor = (s: string) => {
-    if (s === "Done") return "bg-emerald-950/60 text-emerald-300 border border-emerald-500/20 line-through opacity-75";
+    if (s === "Done") return "bg-brand-primary/10 text-brand-primary-light border border-brand-primary/20 line-through opacity-75";
     if (s === "No-show") return "bg-rose-950/60 text-rose-300 border border-rose-500/30";
     if (s === "Cancelled") return "bg-white/5 text-white/40 border border-white/5 line-through opacity-60";
     return "bg-sky-950/60 text-sky-300 border border-sky-500/30";
@@ -140,12 +140,12 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
           onClick={() => setSelDate(ds)}
           className={`min-h-[92px] border-b border-r border-white/10 p-2 cursor-pointer transition-all flex flex-col justify-between ${
             isOtherMonth ? "bg-white/0 text-white/20 hover:bg-white/5" : "bg-white/5 text-white hover:bg-white/10"
-          } ${ds === todayS ? "bg-emerald-500/10" : ""} ${ds === selDate ? "ring-2 ring-emerald-500 ring-inset bg-white/15" : ""}`}
+          } ${ds === todayS ? "bg-brand-primary/10" : ""} ${ds === selDate ? "ring-2 ring-brand-primary ring-inset bg-white/15" : ""}`}
         >
           <div className="flex justify-between items-center">
             <span
               className={`text-xs font-display font-semibold inline-grid place-items-center rounded-full ${
-                ds === todayS ? "w-5 h-5 bg-emerald-500 text-slate-950 font-medium" : isOtherMonth ? "text-white/20" : "text-white/80"
+                ds === todayS ? "w-5 h-5 bg-brand-primary text-slate-950 font-medium" : isOtherMonth ? "text-white/20" : "text-white/80"
               }`}
             >
               {d.getDate()}
@@ -193,7 +193,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl overflow-hidden lg:col-span-2">
           <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-emerald-400" />
+              <Calendar className="w-5 h-5 text-brand-primary" />
               <h3 className="font-display font-bold text-white text-lg leading-none">
                 {MONTHS[calM]} {calY}
               </h3>
@@ -239,7 +239,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
             <h4 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center justify-between">
               <span>Agenda for:</span>
-              <span className="text-emerald-400 text-sm font-semibold font-sans">
+              <span className="text-brand-primary text-sm font-semibold font-sans">
                 {selectedDateObject.toLocaleDateString("en-GB", {
                   weekday: "short",
                   day: "numeric",
@@ -267,7 +267,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                       {db.operations.some((op) => op.PatientID === a.PatientID) ? (
                         <button
                           onClick={() => onOpenDrawer(a.PatientID)}
-                          className="font-mono text-xs font-bold text-emerald-300 hover:text-emerald-200 hover:underline cursor-pointer"
+                          className="font-mono text-xs font-bold text-brand-primary-light hover:text-brand-primary hover:underline cursor-pointer"
                         >
                           {a.PatientID}
                         </button>
@@ -279,7 +279,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                         <select
                           value={a.Status}
                           onChange={(e) => onSetStatus(a._row, e.target.value)}
-                          className="text-[11px] font-semibold py-1 px-2 border border-white/10 rounded-lg focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white"
+                          className="text-[11px] font-semibold py-1 px-2 border border-white/10 rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
                         >
                           {listConfig.apptStatus.map((status) => (
                             <option key={status} value={status} className="bg-[#0A2E2A] text-white">
@@ -287,13 +287,13 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                             </option>
                           ))}
                         </select>
-                        {deletingRow === a._row ? (
+                        {deletingRow === a.id ? (
                           <div className="flex items-center gap-1.5 animate-fade-in">
                             <button
                               type="button"
                               onClick={async () => {
                                 try {
-                                  await onDeleteAppointment(a._row);
+                                  await onDeleteAppointment(a.id);
                                 } finally {
                                   setDeletingRow(null);
                                 }
@@ -313,7 +313,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                         ) : (
                           <button
                             type="button"
-                            onClick={() => setDeletingRow(a._row)}
+                            onClick={() => setDeletingRow(a.id)}
                             className="p-1.5 border border-white/10 rounded-lg hover:border-rose-400 text-white/40 hover:text-rose-400 transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -339,7 +339,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
           {/* Add Appointment Form */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl">
             <h4 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-1">
-              <Plus className="w-4 h-4 text-emerald-400" /> Add Visit
+              <Plus className="w-4 h-4 text-brand-primary" /> Add Visit
             </h4>
 
             <form onSubmit={handleAddAppt} className="space-y-4 mt-4">
@@ -353,7 +353,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                   value={pidInput}
                   onChange={(e) => setPidInput(e.target.value)}
                   placeholder="e.g. PS-0142 or Walk-In Name"
-                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 bg-white/5 text-white placeholder-white/30"
+                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/30 bg-white/5 text-white placeholder-white/30"
                   required
                 />
                 <datalist id="app-pids">
@@ -372,7 +372,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                     type="time"
                     value={timeInput}
                     onChange={(e) => setTimeInput(e.target.value)}
-                    className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 bg-white/5 text-white placeholder-white/30"
+                    className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/30 bg-white/5 text-white placeholder-white/30"
                   />
                 </div>
                 <div>
@@ -382,7 +382,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                   <select
                     value={typeInput}
                     onChange={(e) => setTypeInput(e.target.value)}
-                    className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 bg-[#0A2E2A] text-white"
+                    className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/30 bg-[#0A2E2A] text-white"
                   >
                     {listConfig.apptTypes.map((t) => (
                       <option key={t} value={t} className="bg-[#0A2E2A] text-white">
@@ -408,14 +408,14 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                   value={notesInput}
                   onChange={(e) => setNotesInput(e.target.value)}
                   placeholder="Sutures count, diagnostic criteria..."
-                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 bg-white/5 text-white placeholder-white/30"
+                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/30 bg-white/5 text-white placeholder-white/30"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={submitting || !pidInput}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-2.5 rounded-xl font-semibold text-sm transition-colors mt-2 cursor-pointer border border-emerald-400/20 shadow-lg"
+                className="w-full bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-2.5 rounded-xl font-semibold text-sm transition-colors mt-2 cursor-pointer border border-brand-primary/20 shadow-lg"
               >
                 {submitting ? "Scheduling..." : "Add Appointment"}
               </button>

@@ -211,7 +211,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
               <select
                 value={pidInput}
                 onChange={(e) => setPidInput(e.target.value)}
-                className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white"
+                className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
                 required
               >
                 {ops.length === 0 && (
@@ -234,7 +234,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                   id="c-what-select"
                   value={whatInput}
                   onChange={(e) => setWhatInput(e.target.value)}
-                  className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white"
+                  className="flex-1 py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
                 >
                   {listConfig.complications.map((c) => (
                     <option key={c} value={c} className="bg-[#0A2E2A] text-white">
@@ -248,7 +248,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                     const added = await onQuickAddList("complications", "c-what-select");
                     if (added) setWhatInput(added);
                   }}
-                  className="py-1 px-2.5 border border-white/10 hover:border-emerald-500 text-white/60 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm font-bold cursor-pointer"
+                  className="py-1 px-2.5 border border-white/10 hover:border-brand-primary text-white/60 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-sm font-bold cursor-pointer"
                 >
                   +
                 </button>
@@ -262,7 +262,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
               <select
                 value={gradeInput}
                 onChange={(e) => setGradeInput(e.target.value)}
-                className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-[#0A2E2A] text-white"
+                className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
               >
                 <option value="Grade I" className="bg-[#0A2E2A] text-white">Grade I</option>
                 <option value="Grade II" className="bg-[#0A2E2A] text-white">Grade II</option>
@@ -282,7 +282,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                 type="date"
                 value={dateInput}
                 onChange={(e) => setDateInput(e.target.value)}
-                className={`w-full py-2 px-3 border ${dateWarning ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-emerald-500"} rounded-xl text-sm focus:outline-none bg-white/5 text-white`}
+                className={`w-full py-2 px-3 border ${dateWarning ? "border-rose-500 focus:border-rose-500" : "border-white/10 focus:border-brand-primary"} rounded-xl text-sm focus:outline-none bg-white/5 text-white`}
                 required
               />
             </div>
@@ -309,7 +309,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
               value={mgmtInput}
               onChange={(e) => setMgmtInput(e.target.value)}
               placeholder={t.managementPlaceholder}
-              className="w-full py-2.5 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-emerald-500 bg-white/5 text-white placeholder-white/30"
+              className="w-full py-2.5 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white placeholder-white/30"
             />
           </div>
 
@@ -325,7 +325,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
             <button
               type="submit"
               disabled={submitting || ops.length === 0}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-2.5 px-6 rounded-xl font-semibold text-sm transition-colors cursor-pointer border border-emerald-400/20 shadow-lg text-center"
+              className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-2.5 px-6 rounded-xl font-semibold text-sm transition-colors cursor-pointer border border-brand-primary/20 shadow-lg text-center"
             >
               {submitting ? (isRTL ? "جاري الحفظ..." : "Logging...") : t.submitBtn}
             </button>
@@ -345,7 +345,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
               placeholder={isRTL ? "بحث عن مريض، تصنيف..." : "Search complications..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white/5 text-white placeholder-white/30 text-xs py-2 px-3 border border-white/10 rounded-xl focus:outline-none focus:border-emerald-500"
+              className="w-full bg-white/5 text-white placeholder-white/30 text-xs py-2 px-3 border border-white/10 rounded-xl focus:outline-none focus:border-brand-primary"
             />
           </div>
         </div>
@@ -359,7 +359,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onOpenDrawer(c.PatientID)}
-                      className="font-mono text-xs font-bold text-emerald-300 border-b border-dashed border-emerald-400 hover:border-solid transition-all text-left cursor-pointer"
+                      className="font-mono text-xs font-bold text-brand-primary-light border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                     >
                       {c.PatientID}
                     </button>
@@ -370,7 +370,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                     <button
                       onClick={() => onOpenCompEdit(c._row)}
                       title="Edit entry"
-                      className="p-1.5 border border-white/10 rounded-lg hover:border-emerald-500 text-white/60 hover:text-white bg-white/5 transition-all cursor-pointer"
+                      className="p-1.5 border border-white/10 rounded-lg hover:border-brand-primary text-white/60 hover:text-white bg-white/5 transition-all cursor-pointer"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -393,7 +393,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                 <div className="flex items-center justify-between pt-1">
                   <div>
                     {c.Resolved === "Yes" ? (
-                      <span className="inline-block bg-emerald-950/60 text-emerald-300 border border-emerald-500/20 py-0.5 px-2 rounded-full text-[10px] font-semibold">
+                      <span className="inline-block bg-brand-primary/10 text-brand-primary-light border border-brand-primary/20 py-0.5 px-2 rounded-full text-[10px] font-semibold">
                         {isRTL ? `تم الحل (${fmt(c.ResolvedDate)})` : `Resolved (${fmt(c.ResolvedDate)})`}
                       </span>
                     ) : (
@@ -406,7 +406,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                   {c.Resolved !== "Yes" && (
                     <button
                       onClick={() => onResolveComplication(c._row)}
-                      className="bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 text-emerald-300 font-bold text-xs py-1.5 px-3 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
+                      className="bg-brand-primary/10 hover:bg-brand-primary/15 border border-brand-primary/20 text-brand-primary-light font-bold text-xs py-1.5 px-3 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
                     >
                       <CheckCircle className="w-3.5 h-3.5" />
                       {isRTL ? "تم الحل" : "Resolve"}
@@ -445,7 +445,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                       <button
                         onClick={() => onOpenCompEdit(c._row)}
                         title="Edit entry"
-                        className="p-1.5 border border-white/10 rounded-lg hover:border-emerald-500 hover:text-emerald-300 hover:bg-white/10 transition-all text-white/60 cursor-pointer"
+                        className="p-1.5 border border-white/10 rounded-lg hover:border-brand-primary hover:text-brand-primary-light hover:bg-white/10 transition-all text-white/60 cursor-pointer"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
@@ -453,7 +453,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                     <td className="py-3.5 px-6">
                       <button
                         onClick={() => onOpenDrawer(c.PatientID)}
-                        className="font-mono text-xs font-bold text-emerald-300 hover:text-emerald-200 border-b border-dashed border-emerald-400 hover:border-solid transition-all text-left cursor-pointer"
+                        className="font-mono text-xs font-bold text-brand-primary-light hover:text-brand-primary border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                       >
                         {c.PatientID}
                       </button>
@@ -466,7 +466,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                     </td>
                     <td className="py-3.5 px-6 text-center">
                       {c.Resolved === "Yes" ? (
-                        <span className="inline-block bg-emerald-950/60 text-emerald-300 border border-emerald-500/20 py-0.5 px-2 rounded-full text-xs font-semibold">
+                        <span className="inline-block bg-brand-primary/10 text-brand-primary-light border border-brand-primary/20 py-0.5 px-2 rounded-full text-xs font-semibold">
                           {isRTL ? "تم الحل" : "Resolved"}
                         </span>
                       ) : (
@@ -481,7 +481,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                       ) : (
                         <button
                           onClick={() => onResolveComplication(c._row)}
-                          className="bg-white/5 hover:bg-white/10 border border-white/10 text-emerald-300 font-bold text-xs py-1.5 px-3 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
+                          className="bg-white/5 hover:bg-white/10 border border-white/10 text-brand-primary-light font-bold text-xs py-1.5 px-3 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
                         >
                           <CheckCircle className="w-3 h-3" />
                           {isRTL ? "حل" : "Resolve"}
