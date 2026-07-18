@@ -4,8 +4,8 @@ import fs from "fs/promises";
 import { createServer as createViteServer } from "vite";
 
 const app = express();
-const PORT = 3000;
-const DB_FILE = path.join(process.cwd(), "db.json");
+const PORT = Number(process.env.PORT) || 3000;
+const DB_FILE = process.env.DB_PATH || path.join(process.cwd(), "db.json");
 
 // Default lists
 const DEFAULT_SURGEONS = ["Dr. A", "Dr. B"];
