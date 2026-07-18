@@ -269,7 +269,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                   {todayAppts.length > 0 ? (
                     todayAppts.map((appt) => (
                       <div
-                        key={appt.id || appt._row}
+                        key={appt.id}
                         onClick={() => onOpenDrawer(appt.PatientID)}
                         className="p-4 border border-white/10 rounded-xl bg-black/20 hover:bg-black/30 transition-all cursor-pointer flex items-center justify-between"
                       >

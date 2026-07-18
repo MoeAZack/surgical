@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { DBState, Operation } from "../types";
 import { fmt } from "../utils";
-import { Search, PlusCircle, Pencil, Image as ImageIcon, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, PlusCircle, Pencil, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { translations } from "../translations";
 
 interface OperationsLogProps {
   db: DBState;
   lang?: "en" | "ar";
   onOpenDrawer: (pid: string) => void;
-  onOpenEdit: (row: number) => void;
-  onOpenPhotos: (pid: string) => void;
+  onOpenEdit: (id: string) => void;
   onNavigateToNew: () => void;
 }
 
@@ -18,7 +17,6 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
   lang = "en",
   onOpenDrawer,
   onOpenEdit,
-  onOpenPhotos,
   onNavigateToNew
 }) => {
   const [search, setSearch] = useState("");
@@ -344,18 +342,11 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
                     <td className="py-3 px-6 text-center">
                       <div className="flex items-center justify-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => onOpenEdit(o._row)}
+                          onClick={() => onOpenEdit(o.id)}
                           title="Edit"
                           className="p-1.5 border border-white/10 rounded-lg hover:border-brand-primary hover:text-brand-primary-light hover:bg-brand-primary/10 transition-all text-white/60 cursor-pointer"
                         >
                           <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => onOpenPhotos(o.PatientID)}
-                          title="Photos"
-                          className="p-1.5 border border-white/10 rounded-lg hover:border-brand-primary hover:text-brand-primary-light hover:bg-brand-primary/10 transition-all text-white/60 cursor-pointer"
-                        >
-                          <ImageIcon className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>

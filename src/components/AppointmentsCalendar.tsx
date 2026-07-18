@@ -7,8 +7,8 @@ import { VoiceInputButton } from "./VoiceInputButton";
 interface AppointmentsCalendarProps {
   db: DBState;
   onAddAppointment: (appt: { PatientID: string; Date: string; Time: string; Type: string; Notes: string }) => Promise<void>;
-  onSetStatus: (row: number, status: string) => Promise<void>;
-  onDeleteAppointment: (row: number) => Promise<void>;
+  onSetStatus: (id: string, status: string) => Promise<void>;
+  onDeleteAppointment: (id: string) => Promise<void>;
   onOpenDrawer: (pid: string) => void;
   selectedDateFromDash?: string;
   onClearDashDate?: () => void;
@@ -278,7 +278,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                       <div className="flex items-center gap-1.5">
                         <select
                           value={a.Status}
-                          onChange={(e) => onSetStatus(a._row, e.target.value)}
+                          onChange={(e) => onSetStatus(a.id, e.target.value)}
                           className="text-[11px] font-semibold py-1 px-2 border border-white/10 rounded-lg focus:outline-none focus:border-brand-primary bg-[#0A2E2A] text-white"
                         >
                           {listConfig.apptStatus.map((status) => (

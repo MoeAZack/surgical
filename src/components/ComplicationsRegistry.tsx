@@ -15,8 +15,8 @@ interface ComplicationsRegistryProps {
     DateDetected: string;
     Management: string;
   }) => Promise<void>;
-  onResolveComplication: (row: number) => Promise<void>;
-  onOpenCompEdit: (row: number) => void;
+  onResolveComplication: (id: string) => Promise<void>;
+  onOpenCompEdit: (id: string) => void;
   onOpenDrawer: (pid: string) => void;
   onQuickAddList: (kind: "complications", selectId: string) => Promise<string | undefined>;
 }
@@ -368,7 +368,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => onOpenCompEdit(c._row)}
+                      onClick={() => onOpenCompEdit(c.id)}
                       title="Edit entry"
                       className="p-1.5 border border-white/10 rounded-lg hover:border-brand-primary text-white/60 hover:text-white bg-white/5 transition-all cursor-pointer"
                     >
@@ -405,7 +405,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
 
                   {c.Resolved !== "Yes" && (
                     <button
-                      onClick={() => onResolveComplication(c._row)}
+                      onClick={() => onResolveComplication(c.id)}
                       className="bg-brand-primary/10 hover:bg-brand-primary/15 border border-brand-primary/20 text-brand-primary-light font-bold text-xs py-1.5 px-3 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
                     >
                       <CheckCircle className="w-3.5 h-3.5" />
@@ -443,7 +443,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                   <tr key={c.id} className="hover:bg-white/5 transition-colors">
                     <td className="py-3 px-6 text-center">
                       <button
-                        onClick={() => onOpenCompEdit(c._row)}
+                        onClick={() => onOpenCompEdit(c.id)}
                         title="Edit entry"
                         className="p-1.5 border border-white/10 rounded-lg hover:border-brand-primary hover:text-brand-primary-light hover:bg-white/10 transition-all text-white/60 cursor-pointer"
                       >
@@ -480,7 +480,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                         <span className="text-xs text-white/40 font-semibold">{isRTL ? `حُل في ${fmt(c.ResolvedDate)}` : `Fixed ${fmt(c.ResolvedDate)}`}</span>
                       ) : (
                         <button
-                          onClick={() => onResolveComplication(c._row)}
+                          onClick={() => onResolveComplication(c.id)}
                           className="bg-white/5 hover:bg-white/10 border border-white/10 text-brand-primary-light font-bold text-xs py-1.5 px-3 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
                         >
                           <CheckCircle className="w-3 h-3" />

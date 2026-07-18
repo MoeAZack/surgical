@@ -1,11 +1,15 @@
 import express from "express";
 import path from "path";
 import fs from "fs/promises";
+import { randomUUID } from "crypto";
 import { createServer as createViteServer } from "vite";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const DB_FILE = process.env.DB_PATH || path.join(process.cwd(), "db.json");
+
+// Cap the audit trail so the JSON store cannot grow without bound.
+const MAX_AUDIT_ENTRIES = 1000;
 
 // Default lists
 const DEFAULT_SURGEONS = ["Dr. A", "Dr. B"];
@@ -146,86 +150,121 @@ const INITIAL_DB: Database = {
   user: "moezaka@gmail.com"
 };
 
+// Collision-proof unique id generator (replaces the old Date.now() ids that
+// could collide when two records were created in the same millisecond).
+function newId(): string {
+  return randomUUID();
+}
+
 // Helper to read DB
 async function readDB(): Promise<Database> {
+  let db: Database;
   try {
     const data = await fs.readFile(DB_FILE, "utf-8");
-    const db = JSON.parse(data);
-    
-    // Ensure all required sections exist
-    if (!db.lists) db.lists = { ...INITIAL_DB.lists };
-    if (!db.config) db.config = { ...INITIAL_DB.config };
-    if (!db.operations) db.operations = [];
-    if (!db.complications) db.complications = [];
-    if (!db.followup) db.followup = [];
-    if (!db.appointments) db.appointments = [];
-    if (!db.drains) db.drains = [];
-    if (!db.checks) db.checks = [];
-    if (!db.audit) db.audit = [];
-
-    // Auto-reindex _row property for robust deletion & update targeting
-    db.operations.forEach((o: any, i: number) => { o._row = i + 2; });
-    db.complications.forEach((c: any, i: number) => { c._row = i + 2; });
-    db.followup.forEach((f: any, i: number) => { f._row = i + 2; });
-    db.appointments.forEach((a: any, i: number) => { a._row = i + 2; });
-
-    // Sync lists with any missing defaults requested by the user
-    if (!db.lists.procedures) {
-      db.lists.procedures = [...DEFAULT_PROCEDURES];
-    } else {
-      DEFAULT_PROCEDURES.forEach((p) => {
-        if (!db.lists.procedures.includes(p)) {
-          db.lists.procedures.push(p);
-        }
-      });
-    }
-
-    if (!db.lists.complications) {
-      db.lists.complications = [...DEFAULT_COMPLICATIONS];
-    } else {
-      DEFAULT_COMPLICATIONS.forEach((c) => {
-        if (!db.lists.complications.includes(c)) {
-          db.lists.complications.push(c);
-        }
-      });
-    }
-
-    return db;
+    db = JSON.parse(data);
   } catch (error) {
-    // If doesn't exist, write default and return
-    await writeDB(INITIAL_DB);
-    return { ...INITIAL_DB };
+    // If it doesn't exist (or is unreadable), seed defaults and return.
+    const seed: Database = JSON.parse(JSON.stringify(INITIAL_DB));
+    await writeDB(seed);
+    return seed;
   }
+
+  // Ensure all required sections exist
+  if (!db.lists) db.lists = JSON.parse(JSON.stringify(INITIAL_DB.lists));
+  if (!db.config) db.config = { ...INITIAL_DB.config };
+  if (!Array.isArray(db.operations)) db.operations = [];
+  if (!Array.isArray(db.complications)) db.complications = [];
+  if (!Array.isArray(db.followup)) db.followup = [];
+  if (!Array.isArray(db.appointments)) db.appointments = [];
+  if (!Array.isArray(db.drains)) db.drains = [];
+  if (!Array.isArray(db.checks)) db.checks = [];
+  if (!Array.isArray(db.audit)) db.audit = [];
+  if (!db.user) db.user = INITIAL_DB.user;
+
+  // Backfill stable ids on any legacy/imported record missing one, and drop the
+  // obsolete `_row` spreadsheet-emulation field wherever it lingers.
+  const clean = (rows: any[]) => {
+    rows.forEach((r) => {
+      if (r && typeof r === "object") {
+        if (!r.id) r.id = newId();
+        if ("_row" in r) delete r._row;
+      }
+    });
+  };
+  clean(db.operations);
+  clean(db.complications);
+  clean(db.followup);
+  clean(db.appointments);
+  clean(db.drains);
+  clean(db.checks);
+
+  // Sync lists with any missing defaults so new catalog entries appear.
+  if (!Array.isArray(db.lists.procedures)) {
+    db.lists.procedures = [...DEFAULT_PROCEDURES];
+  } else {
+    DEFAULT_PROCEDURES.forEach((p) => {
+      if (!db.lists.procedures.includes(p)) db.lists.procedures.push(p);
+    });
+  }
+
+  if (!Array.isArray(db.lists.complications)) {
+    db.lists.complications = [...DEFAULT_COMPLICATIONS];
+  } else {
+    DEFAULT_COMPLICATIONS.forEach((c) => {
+      if (!db.lists.complications.includes(c)) db.lists.complications.push(c);
+    });
+  }
+
+  return db;
 }
 
-// Helper to write DB
-async function writeDB(db: Database): Promise<void> {
-  await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2), "utf-8");
+// Serialized, atomic DB writer: writes to a temp file then renames (rename is
+// atomic on POSIX), and chains calls so concurrent writes never interleave or
+// leave a half-written db.json.
+let writeChain: Promise<void> = Promise.resolve();
+
+async function persist(db: Database): Promise<void> {
+  const tmpPath = `${DB_FILE}.${process.pid}.tmp`;
+  const payload = JSON.stringify(db, null, 2);
+  await fs.writeFile(tmpPath, payload, "utf-8");
+  await fs.rename(tmpPath, DB_FILE);
 }
 
-function logAudit(db: any, action: string, details: string) {
-  if (!db.audit) db.audit = [];
+function writeDB(db: Database): Promise<void> {
+  const attempt = writeChain.then(
+    () => persist(db),
+    () => persist(db)
+  );
+  // Keep the chain alive even if this write rejects; the caller still sees the error.
+  writeChain = attempt.then(
+    () => undefined,
+    () => undefined
+  );
+  return attempt;
+}
+
+function logAudit(db: Database, action: string, details: string) {
+  if (!Array.isArray(db.audit)) db.audit = [];
   db.audit.push({
-    id: Date.now().toString() + Math.random().toString().slice(2, 6),
+    id: newId(),
     Timestamp: new Date().toISOString(),
-    User: db.user || "moezaka@gmail.com",
+    User: db.user || INITIAL_DB.user,
     Action: action,
     Details: details
   });
+  // Trim to the most recent entries to bound the file size.
+  if (db.audit.length > MAX_AUDIT_ENTRIES) {
+    db.audit = db.audit.slice(db.audit.length - MAX_AUDIT_ENTRIES);
+  }
 }
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 // API Endpoints
 app.get("/api/all", async (req, res) => {
   try {
     const db = await readDB();
-    res.json({
-      ...db,
-      audit: db.audit || [],
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -239,14 +278,13 @@ app.post("/api/operations", async (req, res) => {
     if (!op.PatientID) {
       return res.status(400).json({ error: "Patient ID is required." });
     }
-    if (db.operations.some((o) => o.PatientID.toLowerCase() === op.PatientID.toLowerCase())) {
+    if (db.operations.some((o) => String(o.PatientID).toLowerCase() === String(op.PatientID).toLowerCase())) {
       return res.status(400).json({ error: `Patient ID ${op.PatientID} already exists.` });
     }
 
     const newOp = {
       ...op,
-      _row: db.operations.length + 2, // 1-indexed plus header row compatibility
-      id: Date.now().toString(),
+      id: newId(),
       CreatedAt: new Date().toISOString(),
       CreatedBy: db.user
     };
@@ -255,24 +293,19 @@ app.post("/api/operations", async (req, res) => {
 
     // Auto seed follow-up
     db.followup.push({
+      id: newId(),
       PatientID: op.PatientID,
       M1: "—",
       M3: "—",
       M6: "—",
       M12: "—",
-      FinalOutcome: "Ongoing",
-      _row: db.followup.length + 2,
-      id: (Date.now() + 1).toString()
+      FinalOutcome: "Ongoing"
     });
 
     logAudit(db, "Create Operation", `Added patient ID ${op.PatientID} (${op.Procedure} by ${op.Surgeon})`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -287,17 +320,18 @@ app.put("/api/operations", async (req, res) => {
       return res.status(400).json({ error: "Patient ID is required." });
     }
 
-    const index = db.operations.findIndex((o) => o._row === Number(op._row));
+    const index = db.operations.findIndex((o) => o.id === op.id);
     if (index === -1) {
-      return res.status(404).json({ error: "The sheet changed since you loaded — refresh and try again." });
+      return res.status(404).json({ error: "This record no longer exists — refresh and try again." });
     }
 
     const currentOp = db.operations[index];
+    const oldPatientID = currentOp.PatientID;
 
-    // Check duplicate ID if ID has changed
+    // Check duplicate ID if the Patient ID has changed
     if (
-      op.PatientID.toLowerCase() !== op.oldPatientID.toLowerCase() &&
-      db.operations.some((o) => o.PatientID.toLowerCase() === op.PatientID.toLowerCase())
+      String(op.PatientID).toLowerCase() !== String(oldPatientID).toLowerCase() &&
+      db.operations.some((o) => String(o.PatientID).toLowerCase() === String(op.PatientID).toLowerCase())
     ) {
       return res.status(400).json({ error: `Patient ID ${op.PatientID} already exists.` });
     }
@@ -314,30 +348,20 @@ app.put("/api/operations", async (req, res) => {
       Notes: op.Notes || ""
     };
 
-    // Cascade rename
-    if (op.PatientID.toLowerCase() !== op.oldPatientID.toLowerCase()) {
-      const oldId = op.oldPatientID;
-      const newId = op.PatientID;
-
-      // Rename in other sheets
-      db.drains.forEach((d) => {
-        if (d.PatientID === oldId) d.PatientID = newId;
+    // Cascade rename across all sections keyed by PatientID
+    if (String(op.PatientID).toLowerCase() !== String(oldPatientID).toLowerCase()) {
+      const newId2 = op.PatientID;
+      const cascade = (rows: any[]) => rows.forEach((r) => {
+        if (r.PatientID === oldPatientID) r.PatientID = newId2;
       });
-      db.complications.forEach((c) => {
-        if (c.PatientID === oldId) c.PatientID = newId;
-      });
-      db.followup.forEach((f) => {
-        if (f.PatientID === oldId) f.PatientID = newId;
-      });
-      db.checks.forEach((ch) => {
-        if (ch.PatientID === oldId) ch.PatientID = newId;
-      });
-      db.appointments.forEach((a) => {
-        if (a.PatientID === oldId) a.PatientID = newId;
-      });
+      cascade(db.drains);
+      cascade(db.complications);
+      cascade(db.followup);
+      cascade(db.checks);
+      cascade(db.appointments);
     }
 
-    // Delete drain if no longer placed
+    // Delete drain-removal record if the drain is no longer placed
     if (!op.DrainPlaced) {
       db.drains = db.drains.filter((d) => d.PatientID !== op.PatientID);
     }
@@ -345,11 +369,7 @@ app.put("/api/operations", async (req, res) => {
     logAudit(db, "Update Operation", `Updated details for patient ID ${op.PatientID}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -367,20 +387,10 @@ app.delete("/api/operations/:pid", async (req, res) => {
     db.checks = db.checks.filter((ch) => ch.PatientID !== pid);
     db.appointments = db.appointments.filter((a) => a.PatientID !== pid);
 
-    // Recalculate row indices to maintain backward compatibility
-    db.operations.forEach((o, i) => (o._row = i + 2));
-    db.complications.forEach((c, i) => (c._row = i + 2));
-    db.followup.forEach((f, i) => (f._row = i + 2));
-    db.appointments.forEach((a, i) => (a._row = i + 2));
-
     logAudit(db, "Delete Operation", `Hard deleted patient ID ${pid} and all cascaded data`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -393,21 +403,17 @@ app.post("/api/drains/remove", async (req, res) => {
 
     if (!db.drains.some((d) => d.PatientID === PatientID)) {
       db.drains.push({
+        id: newId(),
         PatientID,
         RemovedDate: new Date().toISOString().split("T")[0],
-        RemovedBy: db.user,
-        id: Date.now().toString()
+        RemovedBy: db.user
       });
     }
 
     logAudit(db, "Remove Drain", `Marked drain removed for patient ID ${PatientID}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -423,11 +429,7 @@ app.post("/api/drains/undo", async (req, res) => {
     logAudit(db, "Undo Drain Removal", `Undid drain removal for patient ID ${PatientID}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -443,15 +445,14 @@ app.post("/api/complications", async (req, res) => {
     }
 
     const newComp = {
+      id: newId(),
       PatientID: comp.PatientID,
       Complication: comp.Complication || "Other",
       Grade: comp.Grade || "",
       DateDetected: comp.DateDetected || new Date().toISOString().split("T")[0],
       Management: comp.Management || "",
       Resolved: "No",
-      ResolvedDate: "",
-      _row: db.complications.length + 2,
-      id: Date.now().toString()
+      ResolvedDate: ""
     };
 
     db.complications.push(newComp);
@@ -459,11 +460,7 @@ app.post("/api/complications", async (req, res) => {
     logAudit(db, "Add Complication", `Logged complication '${newComp.Complication}' (Clavien ${newComp.Grade}) for patient ID ${comp.PatientID}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -474,63 +471,56 @@ app.put("/api/complications", async (req, res) => {
     const comp = req.body;
     const db = await readDB();
 
-    const index = db.complications.findIndex((c) => c._row === Number(comp._row));
-    if (index !== -1) {
-      const existingComp = db.complications[index];
-      const wasResolved = existingComp.Resolved === "Yes";
-
-      db.complications[index] = {
-        ...existingComp,
-        Complication: comp.Complication || "Other",
-        Grade: comp.Grade || "",
-        DateDetected: comp.DateDetected || "",
-        Management: comp.Management || "",
-        Resolved: comp.Resolved ? "Yes" : "No",
-        ResolvedDate: comp.Resolved ? (wasResolved ? existingComp.ResolvedDate : new Date().toISOString().split("T")[0]) : ""
-      };
+    const index = db.complications.findIndex((c) => c.id === comp.id);
+    if (index === -1) {
+      return res.status(404).json({ error: "This complication no longer exists — refresh and try again." });
     }
 
-    logAudit(db, "Update Complication", `Updated complication records for patient ID ${comp.PatientID}`);
+    const existingComp = db.complications[index];
+    const wasResolved = existingComp.Resolved === "Yes";
+
+    db.complications[index] = {
+      ...existingComp,
+      Complication: comp.Complication || "Other",
+      Grade: comp.Grade || "",
+      DateDetected: comp.DateDetected || "",
+      Management: comp.Management || "",
+      Resolved: comp.Resolved ? "Yes" : "No",
+      ResolvedDate: comp.Resolved ? (wasResolved ? existingComp.ResolvedDate : new Date().toISOString().split("T")[0]) : ""
+    };
+
+    logAudit(db, "Update Complication", `Updated complication records for patient ID ${db.complications[index].PatientID}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete("/api/complications/:row", async (req, res) => {
+app.delete("/api/complications/:id", async (req, res) => {
   try {
-    const row = Number(req.params.row);
+    const id = req.params.id;
     const db = await readDB();
 
-    db.complications = db.complications.filter((c) => c._row !== row);
-    // Reindex rows
-    db.complications.forEach((c, i) => (c._row = i + 2));
+    const target = db.complications.find((c) => c.id === id);
+    db.complications = db.complications.filter((c) => c.id !== id);
 
-    logAudit(db, "Delete Complication", `Deleted complication log entry at row ${row}`);
+    logAudit(db, "Delete Complication", `Deleted complication log entry for patient ID ${target ? target.PatientID : "Unknown"}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/complications/resolve/:row", async (req, res) => {
+app.post("/api/complications/resolve/:id", async (req, res) => {
   try {
-    const row = Number(req.params.row);
+    const id = req.params.id;
     const db = await readDB();
 
-    const index = db.complications.findIndex((c) => c._row === row);
+    const index = db.complications.findIndex((c) => c.id === id);
     if (index !== -1) {
       db.complications[index].Resolved = "Yes";
       db.complications[index].ResolvedDate = new Date().toISOString().split("T")[0];
@@ -540,11 +530,7 @@ app.post("/api/complications/resolve/:row", async (req, res) => {
     logAudit(db, "Resolve Complication", `Marked complication resolved for patient ID ${pId}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -553,19 +539,22 @@ app.post("/api/complications/resolve/:row", async (req, res) => {
 app.post("/api/followup", async (req, res) => {
   try {
     const { PatientID, field, value } = req.body;
+    const ALLOWED_FIELDS = ["M1", "M3", "M6", "M12", "FinalOutcome"];
+    if (!ALLOWED_FIELDS.includes(field)) {
+      return res.status(400).json({ error: "Invalid follow-up field." });
+    }
     const db = await readDB();
 
     let rec = db.followup.find((f) => f.PatientID === PatientID);
     if (!rec) {
       rec = {
+        id: newId(),
         PatientID,
         M1: "—",
         M3: "—",
         M6: "—",
         M12: "—",
-        FinalOutcome: "Ongoing",
-        _row: db.followup.length + 2,
-        id: Date.now().toString()
+        FinalOutcome: "Ongoing"
       };
       db.followup.push(rec);
     }
@@ -575,11 +564,7 @@ app.post("/api/followup", async (req, res) => {
     logAudit(db, "Update Follow-up", `Set milestone ${field} to '${value}' for patient ID ${PatientID}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -594,10 +579,10 @@ app.post("/api/checks", async (req, res) => {
 
     if (done && index === -1) {
       db.checks.push({
+        id: newId(),
         PatientID,
         Item: item,
-        Done: "Yes",
-        id: Date.now().toString()
+        Done: "Yes"
       });
     } else if (!done && index !== -1) {
       db.checks.splice(index, 1);
@@ -606,11 +591,7 @@ app.post("/api/checks", async (req, res) => {
     logAudit(db, done ? "Check Item Done" : "Check Item Undo", `${done ? "Checked" : "Unchecked"} '${item}' for patient ID ${PatientID}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -629,25 +610,20 @@ app.post("/api/appointments", async (req, res) => {
     }
 
     db.appointments.push({
+      id: newId(),
       PatientID: appt.PatientID,
       Date: appt.Date,
       Time: appt.Time || "",
       Type: appt.Type || "Other",
       Notes: appt.Notes || "",
       Status: "Scheduled",
-      CreatedBy: db.user,
-      _row: db.appointments.length + 2,
-      id: Date.now().toString()
+      CreatedBy: db.user
     });
 
     logAudit(db, "Create Appointment", `Scheduled ${appt.Type} on ${appt.Date} for patient ID ${appt.PatientID}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -655,59 +631,34 @@ app.post("/api/appointments", async (req, res) => {
 
 app.post("/api/appointments/status", async (req, res) => {
   try {
-    const { row, status } = req.body;
+    const { id, status } = req.body;
     const db = await readDB();
 
-    const appt = db.appointments.find((a) => a._row === Number(row));
+    const appt = db.appointments.find((a) => a.id === id);
     if (appt) {
       appt.Status = status;
       logAudit(db, "Update Appointment Status", `Set status to '${status}' for patient ID ${appt.PatientID} appointment`);
     }
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete("/api/appointments/:rowOrId", async (req, res) => {
+app.delete("/api/appointments/:id", async (req, res) => {
   try {
-    const rowOrId = req.params.rowOrId;
+    const id = req.params.id;
     const db = await readDB();
 
-    const rowNum = Number(rowOrId);
-    let targetAppt;
-    if (!isNaN(rowNum)) {
-      targetAppt = db.appointments.find((a) => a._row === rowNum || a.id === rowOrId);
-    } else {
-      targetAppt = db.appointments.find((a) => a.id === rowOrId);
-    }
+    const target = db.appointments.find((a) => a.id === id);
+    db.appointments = db.appointments.filter((a) => a.id !== id);
 
-    const targetPid = targetAppt ? targetAppt.PatientID : "Unknown";
-    const targetType = targetAppt ? targetAppt.Type : "Appointment";
-
-    if (!isNaN(rowNum)) {
-      db.appointments = db.appointments.filter((a) => a._row !== rowNum && a.id !== rowOrId);
-    } else {
-      db.appointments = db.appointments.filter((a) => a.id !== rowOrId);
-    }
-
-    // Reindex rows
-    db.appointments.forEach((a, i) => (a._row = i + 2));
-
-    logAudit(db, "Delete Appointment", `Deleted scheduled ${targetType} for patient ID ${targetPid}`);
+    logAudit(db, "Delete Appointment", `Deleted scheduled ${target ? target.Type : "appointment"} for patient ID ${target ? target.PatientID : "Unknown"}`);
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -718,6 +669,10 @@ app.post("/api/lists/save", async (req, res) => {
     const { type, items } = req.body;
     const db = await readDB();
 
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: "Items must be a list." });
+    }
+
     if (type === "surgeons") {
       db.lists.surgeons = items;
     } else if (type === "procedures") {
@@ -726,14 +681,12 @@ app.post("/api/lists/save", async (req, res) => {
       db.lists.checklistItems = items;
     } else if (type === "complications") {
       db.lists.complications = items;
+    } else {
+      return res.status(400).json({ error: "Unknown list type." });
     }
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -753,22 +706,7 @@ app.post("/api/config/save", async (req, res) => {
     };
 
     await writeDB(db);
-    res.json({
-      ...db,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Photo folder Mock / URL resolver
-app.get("/api/photos/:pid", async (req, res) => {
-  try {
-    const pid = req.params.pid;
-    // Return a dummy folder link since there is no actual Drive connection in the preview environment
-    res.json({ url: `https://drive.google.com/drive/search?q=${encodeURIComponent(pid)}` });
+    res.json(db);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -805,12 +743,9 @@ app.post("/api/backup/upload", async (req, res) => {
       ...newDb
     });
 
+    // Re-read so ids are backfilled and default lists re-synced.
     const updatedDb = await readDB();
-    res.json({
-      ...updatedDb,
-      sheetUrl: "https://docs.google.com/spreadsheets",
-      photosUrl: "https://drive.google.com"
-    });
+    res.json(updatedDb);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

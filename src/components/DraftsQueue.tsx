@@ -334,7 +334,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
         successCount++;
       } catch (err: any) {
         onShowToast(`Failed syncing draft ${draft.data.PatientID}: ${err.message}`, true);
-        break; // Stop sequencing if connection fails or sheets is locked
+        break; // Stop sequencing if a save fails (e.g. connection lost)
       }
     }
 
@@ -345,8 +345,8 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
     if (successCount > 0) {
       onShowToast(
         isRTL
-          ? `نجحت مزامنة ${successCount} مسودات بنجاح! ✓`
-          : `Successfully synced ${successCount} drafts to clinical sheets database! ✓`
+          ? `تم حفظ ${successCount} مسودات في قاعدة بيانات الحالات بنجاح! ✓`
+          : `Saved ${successCount} drafts to the case database successfully! ✓`
       );
     }
   };
@@ -365,7 +365,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
           <p className="text-sm text-white/60 mt-1">
             {isRTL 
               ? "إدارة الحالات والمضاعفات المحفوظة محلياً أثناء انقطاع الاتصال أو للإدخال السريع."
-              : "Manage clinical files cached locally. Synchronize them securely to Google Sheets when ready."}
+              : "Manage clinical files cached locally. Save them securely to the case database when ready."}
           </p>
         </div>
 
@@ -492,7 +492,7 @@ export const DraftsQueue: React.FC<DraftsQueueProps> = ({
                     ) : (
                       <Send className="w-3.5 h-3.5" />
                     )}
-                    <span>{isCurrentSyncing ? (isRTL ? "جاري الإرسال..." : "Syncing...") : (isRTL ? "إرسال ومزامنة السجل" : "Sync to Sheet")}</span>
+                    <span>{isCurrentSyncing ? (isRTL ? "جاري الحفظ..." : "Saving...") : (isRTL ? "حفظ السجل" : "Save to Database")}</span>
                   </button>
                 </div>
               </div>

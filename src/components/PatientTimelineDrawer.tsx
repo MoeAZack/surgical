@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { DBState } from "../types";
 import { fmt, daysInSitu, addMonths, isFollowUpLate } from "../utils";
-import { X, Pencil, Image as ImageIcon, CheckCircle2, Calendar, Droplet, AlertCircle, Bookmark, PlusCircle } from "lucide-react";
+import { X, Pencil, CheckCircle2, Calendar, Droplet, AlertCircle, Bookmark, PlusCircle } from "lucide-react";
 import { translations } from "../translations";
 
 interface PatientTimelineDrawerProps {
@@ -9,8 +9,7 @@ interface PatientTimelineDrawerProps {
   db: DBState;
   lang: "en" | "ar";
   onClose: () => void;
-  onOpenEdit: (row: number) => void;
-  onOpenPhotos: (pid: string) => void;
+  onOpenEdit: (id: string) => void;
   onToggleCheckItem: (pid: string, item: string, done: boolean) => Promise<void>;
   onAddComplication: (comp: {
     PatientID: string;
@@ -27,7 +26,6 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
   lang,
   onClose,
   onOpenEdit,
-  onOpenPhotos,
   onToggleCheckItem,
   onAddComplication
 }) => {
@@ -149,19 +147,12 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
               <button
                 onClick={() => {
                   onClose();
-                  onOpenEdit(o._row);
+                  onOpenEdit(o.id);
                 }}
                 className="flex-1 bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold py-1.5 px-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Pencil className="w-3.5 h-3.5 text-brand-primary" />
                 {t.editCaseBtn}
-              </button>
-              <button
-                onClick={() => onOpenPhotos(o.PatientID)}
-                className="flex-1 bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold py-1.5 px-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <ImageIcon className="w-3.5 h-3.5 text-brand-primary" />
-                {t.photosBtn}
               </button>
             </div>
           </div>

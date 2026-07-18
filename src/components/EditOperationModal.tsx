@@ -8,7 +8,7 @@ interface EditOperationModalProps {
   db: DBState;
   onClose: () => void;
   onSave: (updatedOp: {
-    _row: number;
+    id: string;
     oldPatientID: string;
     PatientID: string;
     Age: number | "";
@@ -64,7 +64,7 @@ export const EditOperationModal: React.FC<EditOperationModalProps> = ({
     setSubmitting(true);
     try {
       await onSave({
-        _row: operation._row,
+        id: operation.id,
         oldPatientID: operation.PatientID,
         PatientID: pid.trim().toUpperCase(),
         Age: age,

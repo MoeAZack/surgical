@@ -1,6 +1,5 @@
 export interface Operation {
   id: string;
-  _row: number;
   PatientID: string;
   Age: number | "";
   OperationDate: string;
@@ -21,7 +20,6 @@ export interface Drain {
 
 export interface Complication {
   id: string;
-  _row: number;
   PatientID: string;
   Complication: string;
   Grade: string;
@@ -33,7 +31,6 @@ export interface Complication {
 
 export interface FollowUp {
   id: string;
-  _row: number;
   PatientID: string;
   M1: string;
   M3: string;
@@ -51,7 +48,6 @@ export interface CheckItem {
 
 export interface Appointment {
   id: string;
-  _row: number;
   PatientID: string;
   Date: string;
   Time: string;
@@ -98,8 +94,6 @@ export interface DBState {
   lists: ListConfig;
   config: AppConfig;
   user: string;
-  sheetUrl?: string;
-  photosUrl?: string;
   audit?: AuditEntry[];
 }
 

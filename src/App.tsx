@@ -73,7 +73,6 @@ export default function App() {
     suggestedDate?: string;
     suggestedTime?: string;
     appointmentType?: string;
-    appointmentRow?: number;
   } | null>(null);
 
   // Responsive mobile menu toggle
@@ -168,7 +167,7 @@ export default function App() {
   };
 
   const handleUpdateOperation = async (updatedOp: {
-    _row: number;
+    id: string;
     oldPatientID: string;
     PatientID: string;
     Age: number | "";
@@ -291,7 +290,7 @@ export default function App() {
   };
 
   const handleUpdateComplication = async (updatedComp: {
-    _row: number;
+    id: string;
     Complication: string;
     Grade: string;
     DateDetected: string;
@@ -317,10 +316,10 @@ export default function App() {
     }
   };
 
-  const handleDeleteComplication = async (row: number) => {
+  const handleDeleteComplication = async (id: string) => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/complications/${row}`, {
+      const res = await fetch(`/api/complications/${encodeURIComponent(id)}`, {
         method: "DELETE"
       });
       const data = await res.json();
@@ -335,10 +334,10 @@ export default function App() {
     }
   };
 
-  const handleResolveComplication = async (row: number) => {
+  const handleResolveComplication = async (id: string) => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/complications/resolve/${row}`, {
+      const res = await fetch(`/api/complications/resolve/${encodeURIComponent(id)}`, {
         method: "POST"
       });
       const data = await res.json();
@@ -418,13 +417,13 @@ export default function App() {
     }
   };
 
-  const handleSetAppointmentStatus = async (row: number, status: string) => {
+  const handleSetAppointmentStatus = async (id: string, status: string) => {
     setBusy(true);
     try {
       const res = await fetch("/api/appointments/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ row, status })
+        body: JSON.stringify({ id, status })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update status.");
@@ -433,7 +432,7 @@ export default function App() {
 
       // Chain 3: Mark drain removed?
       if (status === "Done") {
-        const appt = db?.appointments.find((a) => a._row === row);
+        const appt = db?.appointments.find((a) => a.id === id);
         if (appt) {
           const typeLower = appt.Type.toLowerCase();
           const notesLower = (appt.Notes || "").toLowerCase();
@@ -443,8 +442,7 @@ export default function App() {
             if (hasActiveDrain) {
               setChainPrompt({
                 type: "mark-drain-removed",
-                patientID: appt.PatientID,
-                appointmentRow: row
+                patientID: appt.PatientID
               });
             }
           }
@@ -458,10 +456,10 @@ export default function App() {
     }
   };
 
-  const handleDeleteAppointment = async (rowOrId: number | string) => {
+  const handleDeleteAppointment = async (id: string) => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/appointments/${rowOrId}`, {
+      const res = await fetch(`/api/appointments/${encodeURIComponent(id)}`, {
         method: "DELETE"
       });
       const data = await res.json();
@@ -511,20 +509,6 @@ export default function App() {
     } catch (err: any) {
       showToast(err.message, true);
       throw err;
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleOpenPhotos = async (pid: string) => {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/photos/${encodeURIComponent(pid)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to locate folder.");
-      window.open(data.url, "_blank");
-    } catch (err: any) {
-      showToast(err.message, true);
     } finally {
       setBusy(false);
     }
@@ -812,11 +796,10 @@ export default function App() {
             db={db}
             lang={lang}
             onOpenDrawer={(pid) => setSelectedPid(pid)}
-            onOpenEdit={(row) => {
-              const op = db.operations.find((x) => x._row === row);
+            onOpenEdit={(id) => {
+              const op = db.operations.find((x) => x.id === id);
               if (op) setEditingOperation(op);
             }}
-            onOpenPhotos={handleOpenPhotos}
             onNavigateToNew={() => handleTabChange("new")}
           />
         )}
@@ -851,8 +834,8 @@ export default function App() {
             lang={lang}
             onAddComplication={handleAddComplication}
             onResolveComplication={handleResolveComplication}
-            onOpenCompEdit={(row) => {
-              const c = db.complications.find((x) => x._row === row);
+            onOpenCompEdit={(id) => {
+              const c = db.complications.find((x) => x.id === id);
               if (c) setEditingComplication(c);
             }}
             onOpenDrawer={(pid) => setSelectedPid(pid)}
@@ -920,11 +903,10 @@ export default function App() {
         db={db}
         lang={lang}
         onClose={() => setSelectedPid(null)}
-        onOpenEdit={(row) => {
-          const op = db.operations.find((x) => x._row === row);
+        onOpenEdit={(id) => {
+          const op = db.operations.find((x) => x.id === id);
           if (op) setEditingOperation(op);
         }}
-        onOpenPhotos={handleOpenPhotos}
         onToggleCheckItem={handleToggleCheckItem}
         onAddComplication={handleAddComplication}
       />

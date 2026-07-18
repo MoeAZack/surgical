@@ -8,14 +8,14 @@ interface EditComplicationModalProps {
   db: DBState;
   onClose: () => void;
   onSave: (updatedComp: {
-    _row: number;
+    id: string;
     Complication: string;
     Grade: string;
     DateDetected: string;
     Management: string;
     Resolved: boolean;
   }) => Promise<void>;
-  onDelete: (row: number) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }
 
 export const EditComplicationModal: React.FC<EditComplicationModalProps> = ({
@@ -55,7 +55,7 @@ export const EditComplicationModal: React.FC<EditComplicationModalProps> = ({
     setSubmitting(true);
     try {
       await onSave({
-        _row: complication._row,
+        id: complication.id,
         Complication: what,
         Grade: grade,
         DateDetected: date,
@@ -78,7 +78,7 @@ export const EditComplicationModal: React.FC<EditComplicationModalProps> = ({
 
     setDeleting(true);
     try {
-      await onDelete(complication._row);
+      await onDelete(complication.id);
       onClose();
     } finally {
       setDeleting(false);
