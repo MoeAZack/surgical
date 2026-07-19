@@ -7,8 +7,8 @@ import { translations } from "../translations";
 interface FollowUpMilestonesProps {
   db: DBState;
   lang?: "en" | "ar";
-  onSetFollowUp: (PatientID: string, field: string, value: string) => Promise<void>;
-  onOpenDrawer: (pid: string) => void;
+  onSetFollowUp: (operationId: string, field: string, value: string) => Promise<void>;
+  onOpenDrawer: (operationId: string) => void;
 }
 
 export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
@@ -25,16 +25,16 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
   // Search & Pagination States
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(db.config.defaultRowsPerPage || 10);
 
   const t = translations[lang];
   const isRTL = lang === "ar";
 
   const milestones = getMilestones(config);
 
-  const getFollowUpRecord = (pid: string) => {
+  const getFollowUpRecord = (operationId: string) => {
     return (
-      followup.find((f) => f.PatientID === pid) || {
+      followup.find((f) => f.OperationID === operationId) || {
         M1: "—",
         M3: "—",
         M6: "—",
@@ -44,8 +44,8 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
     );
   };
 
-  const handleSelectChange = (pid: string, field: string, value: string) => {
-    onSetFollowUp(pid, field, value);
+  const handleSelectChange = (operationId: string, field: string, value: string) => {
+    onSetFollowUp(operationId, field, value);
   };
 
   // Search filter
@@ -100,13 +100,13 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
         <div className="block md:hidden divide-y divide-white/10">
           {paginatedOps.length > 0 ? (
             paginatedOps.map((o) => {
-              const f = getFollowUpRecord(o.PatientID);
+              const f = getFollowUpRecord(o.id);
 
               return (
                 <div key={o.id} className="p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <button
-                      onClick={() => onOpenDrawer(o.PatientID)}
+                      onClick={() => onOpenDrawer(o.id)}
                       className="font-mono text-xs font-bold text-brand-primary-light border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                     >
                       {o.PatientID}
@@ -132,7 +132,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                           </span>
                           <select
                             value={val}
-                            onChange={(e) => handleSelectChange(o.PatientID, key, e.target.value)}
+                            onChange={(e) => handleSelectChange(o.id, key, e.target.value)}
                             className={`w-full text-xs font-semibold py-1 px-2 border rounded-lg focus:outline-none focus:border-brand-primary bg-brand-bg text-white ${
                               isLate
                                 ? "border-rose-500/30 ring-2 ring-rose-500/10 focus:ring-0 text-rose-300 bg-rose-950/40"
@@ -160,7 +160,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                     <span className="text-xs text-white/50 font-semibold">{isRTL ? "النتيجة النهائية:" : "Final Outcome:"}</span>
                     <select
                       value={f.FinalOutcome}
-                      onChange={(e) => handleSelectChange(o.PatientID, "FinalOutcome", e.target.value)}
+                      onChange={(e) => handleSelectChange(o.id, "FinalOutcome", e.target.value)}
                       className={`text-xs font-semibold py-1.5 px-3 border rounded-lg focus:outline-none focus:border-brand-primary bg-brand-bg text-white ${
                         f.FinalOutcome === "Success"
                           ? "text-brand-primary-light bg-brand-primary/10 border-brand-primary/20 font-bold"
@@ -204,13 +204,13 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
             <tbody className="divide-y divide-white/10 text-white/80">
               {paginatedOps.length > 0 ? (
                 paginatedOps.map((o) => {
-                  const f = getFollowUpRecord(o.PatientID);
+                  const f = getFollowUpRecord(o.id);
 
                   return (
                     <tr key={o.id} className="hover:bg-white/5 transition-colors">
                       <td className="py-3 px-6">
                         <button
-                          onClick={() => onOpenDrawer(o.PatientID)}
+                          onClick={() => onOpenDrawer(o.id)}
                           className="font-mono text-xs font-bold text-brand-primary-light hover:text-brand-primary border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                         >
                           {o.PatientID}
@@ -230,7 +230,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                             <div className="flex flex-col gap-1.5">
                               <select
                                 value={val}
-                                onChange={(e) => handleSelectChange(o.PatientID, key, e.target.value)}
+                                onChange={(e) => handleSelectChange(o.id, key, e.target.value)}
                                 className={`text-xs font-semibold py-1 px-2.5 border rounded-lg focus:outline-none focus:border-brand-primary bg-brand-bg text-white ${
                                   isLate
                                     ? "border-rose-500/30 ring-2 ring-rose-500/10 focus:ring-0 text-rose-300 bg-rose-950/40"
@@ -256,7 +256,7 @@ export const FollowUpMilestones: React.FC<FollowUpMilestonesProps> = ({
                       <td className="py-3 px-6 text-right">
                         <select
                           value={f.FinalOutcome}
-                          onChange={(e) => handleSelectChange(o.PatientID, "FinalOutcome", e.target.value)}
+                          onChange={(e) => handleSelectChange(o.id, "FinalOutcome", e.target.value)}
                           className={`text-xs font-semibold py-1.5 px-3 border rounded-lg focus:outline-none focus:border-brand-primary bg-brand-bg text-white inline-block ${
                             f.FinalOutcome === "Success"
                               ? "text-brand-primary-light bg-brand-primary/10 border-brand-primary/20 font-bold"

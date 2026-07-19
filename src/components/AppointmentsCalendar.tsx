@@ -9,7 +9,7 @@ interface AppointmentsCalendarProps {
   onAddAppointment: (appt: { PatientID: string; Date: string; Time: string; Type: string; Notes: string }) => Promise<void>;
   onSetStatus: (id: string, status: string) => Promise<void>;
   onDeleteAppointment: (id: string) => Promise<void>;
-  onOpenDrawer: (pid: string) => void;
+  onOpenDrawer: (operationId: string) => void;
   selectedDateFromDash?: string;
   onClearDashDate?: () => void;
 }
@@ -54,6 +54,13 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
 
   const appointments = db.appointments;
   const listConfig = db.lists;
+
+  const openDrawerForPatient = (pid: string) => {
+    const candidates = db.operations.filter((o) => o.PatientID === pid);
+    if (candidates.length === 0) return;
+    const latest = [...candidates].sort((a, b) => String(b.OperationDate).localeCompare(String(a.OperationDate)))[0];
+    onOpenDrawer(latest.id);
+  };
 
   useEffect(() => {
     if (listConfig.apptTypes && listConfig.apptTypes.length > 0 && !typeInput) {
@@ -266,7 +273,7 @@ export const AppointmentsCalendar: React.FC<AppointmentsCalendarProps> = ({
                       {/* Check if patient ID exists in operations log */}
                       {db.operations.some((op) => op.PatientID === a.PatientID) ? (
                         <button
-                          onClick={() => onOpenDrawer(a.PatientID)}
+                          onClick={() => openDrawerForPatient(a.PatientID)}
                           className="font-mono text-xs font-bold text-brand-primary-light hover:text-brand-primary hover:underline cursor-pointer"
                         >
                           {a.PatientID}

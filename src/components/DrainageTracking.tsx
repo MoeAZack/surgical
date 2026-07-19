@@ -7,9 +7,9 @@ import { translations } from "../translations";
 interface DrainageTrackingProps {
   db: DBState;
   lang?: "en" | "ar";
-  onMarkRemoved: (pid: string) => Promise<void>;
-  onUndoRemoval: (pid: string) => Promise<void>;
-  onOpenDrawer: (pid: string) => void;
+  onMarkRemoved: (operationId: string) => Promise<void>;
+  onUndoRemoval: (operationId: string) => Promise<void>;
+  onOpenDrawer: (operationId: string) => void;
   onShowToast: (message: string, isError?: boolean) => void;
 }
 
@@ -21,12 +21,12 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
   onOpenDrawer,
   onShowToast
 }) => {
-  const [submittingPid, setSubmittingPid] = useState<string | null>(null);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   // Search & Pagination States
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(db.config.defaultRowsPerPage || 10);
 
   // WhatsApp Modal States
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
@@ -41,27 +41,27 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
   const drains = db.drains;
   const config = db.config;
 
-  const handleMarkRemoved = async (pid: string) => {
-    setSubmittingPid(pid);
+  const handleMarkRemoved = async (operationId: string) => {
+    setSubmittingId(operationId);
     try {
-      await onMarkRemoved(pid);
+      await onMarkRemoved(operationId);
       onShowToast(isRTL ? "تم تسجيل إزالة الأنبوب بنجاح! ✓" : "Drain marked as removed! ✓");
     } catch (err: any) {
       onShowToast(err.message || "Failed marking drain", true);
     } finally {
-      setSubmittingPid(null);
+      setSubmittingId(null);
     }
   };
 
-  const handleUndoRemoval = async (pid: string) => {
-    setSubmittingPid(pid);
+  const handleUndoRemoval = async (operationId: string) => {
+    setSubmittingId(operationId);
     try {
-      await onUndoRemoval(pid);
+      await onUndoRemoval(operationId);
       onShowToast(isRTL ? "تم التراجع عن إزالة الأنبوب." : "Drain removal reversed.");
     } catch (err: any) {
       onShowToast(err.message || "Failed reversing removal", true);
     } finally {
-      setSubmittingPid(null);
+      setSubmittingId(null);
     }
   };
 
@@ -175,7 +175,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
         <div className="block md:hidden divide-y divide-white/10">
           {paginatedOps.length > 0 ? (
             paginatedOps.map((o) => {
-              const rem = drains.find((d) => d.PatientID === o.PatientID);
+              const rem = drains.find((d) => d.OperationID === o.id);
               const d = daysInSitu(o, drains);
               const isLate = d >= config.DrainAlertDays && !rem;
 
@@ -183,7 +183,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                 <div key={o.id} className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <button
-                      onClick={() => onOpenDrawer(o.PatientID)}
+                      onClick={() => onOpenDrawer(o.id)}
                       className="font-mono text-xs font-bold text-brand-primary-light border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                     >
                       {o.PatientID}
@@ -239,21 +239,21 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
 
                     {rem ? (
                       <button
-                        onClick={() => handleUndoRemoval(o.PatientID)}
-                        disabled={submittingPid === o.PatientID}
+                        onClick={() => handleUndoRemoval(o.id)}
+                        disabled={submittingId === o.id}
                         className="flex-1 justify-center bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-xs py-2 px-3 rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
-                        <span>{submittingPid === o.PatientID ? "..." : (isRTL ? "تراجع" : "Undo")}</span>
+                        <span>{submittingId === o.id ? "..." : (isRTL ? "تراجع" : "Undo")}</span>
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleMarkRemoved(o.PatientID)}
-                        disabled={submittingPid === o.PatientID}
+                        onClick={() => handleMarkRemoved(o.id)}
+                        disabled={submittingId === o.id}
                         className="flex-1 justify-center bg-brand-primary hover:bg-brand-primary-hover text-white font-semibold text-xs py-2 px-3 rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         <Check className="w-3.5 h-3.5" />
-                        <span>{submittingPid === o.PatientID ? "..." : (isRTL ? "إزالة" : "Mark Removed")}</span>
+                        <span>{submittingId === o.id ? "..." : (isRTL ? "إزالة" : "Mark Removed")}</span>
                       </button>
                     )}
                   </div>
@@ -283,7 +283,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
             <tbody className="divide-y divide-white/10 text-white/80">
               {paginatedOps.length > 0 ? (
                 paginatedOps.map((o) => {
-                  const rem = drains.find((d) => d.PatientID === o.PatientID);
+                  const rem = drains.find((d) => d.OperationID === o.id);
                   const d = daysInSitu(o, drains);
                   const isLate = d >= config.DrainAlertDays && !rem;
 
@@ -291,7 +291,7 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
                     <tr key={o.id} className="hover:bg-white/5 transition-colors">
                       <td className="py-3.5 px-6">
                         <button
-                          onClick={() => onOpenDrawer(o.PatientID)}
+                          onClick={() => onOpenDrawer(o.id)}
                           className="font-mono text-xs font-bold text-brand-primary-light hover:text-brand-primary border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                         >
                           {o.PatientID}
@@ -340,21 +340,21 @@ export const DrainageTracking: React.FC<DrainageTrackingProps> = ({
 
                         {rem ? (
                           <button
-                            onClick={() => handleUndoRemoval(o.PatientID)}
-                            disabled={submittingPid === o.PatientID}
+                            onClick={() => handleUndoRemoval(o.id)}
+                            disabled={submittingId === o.id}
                             className="bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-xs py-1.5 px-3 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
-                            <span>{submittingPid === o.PatientID ? "..." : (isRTL ? "تراجع" : "Undo")}</span>
+                            <span>{submittingId === o.id ? "..." : (isRTL ? "تراجع" : "Undo")}</span>
                           </button>
                         ) : (
                           <button
-                            onClick={() => handleMarkRemoved(o.PatientID)}
-                            disabled={submittingPid === o.PatientID}
+                            onClick={() => handleMarkRemoved(o.id)}
+                            disabled={submittingId === o.id}
                             className="bg-brand-primary hover:bg-brand-primary-hover text-white font-semibold text-xs py-1.5 px-3 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
                           >
                             <Check className="w-3.5 h-3.5" />
-                            <span>{submittingPid === o.PatientID ? "..." : (isRTL ? "أزيل" : "Mark Removed")}</span>
+                            <span>{submittingId === o.id ? "..." : (isRTL ? "أزيل" : "Mark Removed")}</span>
                           </button>
                         )}
                       </td>

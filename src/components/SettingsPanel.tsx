@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { DBState } from "../types";
 import { apiFetch } from "../api";
-import { Sliders, Link as LinkIcon, Users, Clipboard, AlertTriangle, ListChecks, Download, Upload, Palette } from "lucide-react";
+import { AccessKeysPanel } from "./AccessKeysPanel";
+import { Sliders, Link as LinkIcon, Users, Clipboard, AlertTriangle, ListChecks, Download, Upload, Palette, Building2, Rows3, CloudCheck } from "lucide-react";
 
 interface SettingsPanelProps {
   db: DBState;
@@ -9,8 +10,9 @@ interface SettingsPanelProps {
   themeColor: "emerald" | "teal" | "indigo" | "rose" | "violet" | "amber" | "slate" | "blue";
   onThemeColorChange: (color: "emerald" | "teal" | "indigo" | "rose" | "violet" | "amber" | "slate" | "blue") => void;
   onSaveConfig: (config: DBState["config"]) => Promise<void>;
-  onSaveList: (type: "surgeons" | "procedures" | "checklist" | "complications", items: string[]) => Promise<void>;
+  onSaveList: (type: "surgeons" | "procedures" | "checklist" | "complications", items: string[], quiet?: boolean) => Promise<void>;
   onUploadBackup: (backupData: any) => Promise<void>;
+  isPrimary: boolean;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -20,7 +22,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onThemeColorChange,
   onSaveConfig,
   onSaveList,
-  onUploadBackup
+  onUploadBackup,
+  isPrimary
 }) => {
   // Config state
   const [drainAlert, setDrainAlert] = useState(db.config.DrainAlertDays);
@@ -28,6 +31,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [fu2, setFu2] = useState(db.config.FU2);
   const [fu3, setFu3] = useState(db.config.FU3);
   const [fu4, setFu4] = useState(db.config.FU4);
+  const [practiceName, setPracticeName] = useState(db.config.practiceName || "");
+  const [defaultRowsPerPage, setDefaultRowsPerPage] = useState(db.config.defaultRowsPerPage || 10);
   const [savingConfig, setSavingConfig] = useState(false);
 
   // List states
@@ -43,8 +48,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [complications, setComplications] = useState<string[]>([...db.lists.complications]);
   const [newComplication, setNewComplication] = useState("");
 
-  const [savingListType, setSavingListType] = useState<string | null>(null);
-
   // Backup states
   const [uploadingBackup, setUploadingBackup] = useState(false);
 
@@ -58,20 +61,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         FU1: Number(fu1),
         FU2: Number(fu2),
         FU3: Number(fu3),
-        FU4: Number(fu4)
+        FU4: Number(fu4),
+        practiceName,
+        defaultRowsPerPage: Number(defaultRowsPerPage)
       });
     } finally {
       setSavingConfig(false);
-    }
-  };
-
-  // Handle saving lists
-  const handleSaveList = async (type: "surgeons" | "procedures" | "checklist" | "complications", items: string[]) => {
-    setSavingListType(type);
-    try {
-      await onSaveList(type, items);
-    } finally {
-      setSavingListType(null);
     }
   };
 
@@ -135,13 +130,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }
   };
 
-  // Handle change of an item in list
+  // Handle change of an item in list (persisted on blur via persistOnBlur below).
   const changeLocalItem = (index: number, val: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
     setter((prev) => {
       const copy = [...prev];
       copy[index] = val;
       return copy;
     });
+  };
+
+  // Persist a renamed item once the field loses focus, so edits save without a
+  // separate Save button while not firing a request on every keystroke.
+  const persistOnBlur = (type: "surgeons" | "procedures" | "checklist" | "complications", list: string[]) => {
+    onSaveList(type, list, true).catch(() => {});
   };
 
   // Handle backup file upload
@@ -184,10 +185,40 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {/* Alert & Schedule Config Form */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl lg:col-span-2">
           <h3 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-2 mb-5">
-            <Sliders className="w-4 h-4 text-brand-primary" /> Alerts & Milestone Schedule
+            <Sliders className="w-4 h-4 text-brand-primary" /> General, Alerts & Milestone Schedule
           </h3>
 
           <form onSubmit={handleConfigSubmit} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Building2 className="w-3 h-3" /> Practice Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cairo Aesthetic Surgery"
+                  maxLength={60}
+                  value={practiceName}
+                  onChange={(e) => setPracticeName(e.target.value)}
+                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-white/5 text-white placeholder-white/30"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Rows3 className="w-3 h-3" /> Default Rows Per Page
+                </label>
+                <select
+                  value={defaultRowsPerPage}
+                  onChange={(e) => setDefaultRowsPerPage(Number(e.target.value))}
+                  className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-brand-bg text-white"
+                >
+                  {[5, 10, 25, 50].map((n) => (
+                    <option key={n} value={n} className="bg-brand-bg text-white">{n} rows</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wider mb-2">
@@ -277,48 +308,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </form>
         </div>
 
-        {/* Quick Links & Backups */}
+        {/* Accent Theme + Session */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
           <div>
             <h3 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-2 mb-4">
-              <LinkIcon className="w-4 h-4 text-brand-primary" /> Utility & Data Recovery
+              <Palette className="w-4 h-4 text-brand-primary" /> Visual Accent Theme
             </h3>
-            <p className="text-xs text-white/60 leading-normal">
-              Standalone utility configurations. Backup and restore database files locally in JSON format to safeguard against ephemeral resets.
-            </p>
-
-            <div className="space-y-2 mt-4">
-              <button
-                type="button"
-                onClick={handleDownloadBackup}
-                className="w-full border border-white/10 hover:border-brand-primary/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <Download className="w-4 h-4 shrink-0 text-brand-primary" />
-                Download Backup (.json)
-              </button>
-
-              <label className="w-full border border-white/10 hover:border-brand-primary/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer relative">
-                <Upload className="w-4 h-4 shrink-0 text-brand-primary" />
-                <span>{uploadingBackup ? "Uploading..." : "Upload Backup (.json)"}</span>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileUpload}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  disabled={uploadingBackup}
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="border-t border-white/10 pt-4 mt-4 space-y-2">
-            <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-wider flex items-center gap-1.5">
-              <Palette className="w-3.5 h-3.5 text-brand-primary" /> Visual Accent Theme
-            </h4>
-            <p className="text-[10px] text-white/50 leading-relaxed">
+            <p className="text-xs text-white/50 leading-relaxed">
               Choose a clinical color palette to personalize your workspace interface:
             </p>
-            <div className="grid grid-cols-4 gap-1.5 pt-1">
+            <div className="grid grid-cols-4 gap-1.5 pt-3">
               {[
                 { id: "emerald", label: "Emerald", color: "bg-emerald-500 border-emerald-400" },
                 { id: "teal", label: "Teal", color: "bg-teal-500 border-teal-400" },
@@ -351,6 +350,42 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <span className="text-xs font-mono font-bold text-brand-primary">{db.user}</span>
           </div>
         </div>
+
+        {/* Backup & Data Recovery */}
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-xl lg:col-span-2">
+          <h3 className="font-display font-bold text-white text-base border-b border-white/10 pb-3 flex items-center gap-2 mb-2">
+            <LinkIcon className="w-4 h-4 text-brand-primary" /> Backup & Data Recovery
+          </h3>
+          <p className="text-xs text-white/60 leading-normal flex items-start gap-1.5 mt-2">
+            <CloudCheck className="w-3.5 h-3.5 text-brand-primary shrink-0 mt-0.5" />
+            Every change here saves straight to the cloud automatically, and a dated backup is written to storage every day. The buttons below are an extra manual safety net — export a snapshot before major changes, or restore from a prior export if needed.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+            <button
+              type="button"
+              onClick={handleDownloadBackup}
+              className="w-full border border-white/10 hover:border-brand-primary/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4 shrink-0 text-brand-primary" />
+              Download Snapshot (.json)
+            </button>
+
+            <label className="w-full border border-white/10 hover:border-brand-primary/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer relative">
+              <Upload className="w-4 h-4 shrink-0 text-brand-primary" />
+              <span>{uploadingBackup ? "Restoring..." : "Restore Snapshot (.json)"}</span>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleFileUpload}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                disabled={uploadingBackup}
+              />
+            </label>
+          </div>
+        </div>
+
+        {isPrimary && <AccessKeysPanel lang={lang} />}
       </div>
 
       {/* Editable List Grids */}
@@ -368,6 +403,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   type="text"
                   value={s}
                   onChange={(e) => changeLocalItem(i, e.target.value, setSurgeons)}
+                  onBlur={() => persistOnBlur("surgeons", surgeons)}
                   className="flex-1 py-1 px-3 border border-white/10 focus:border-brand-primary bg-white/5 text-white rounded-lg text-sm focus:outline-none"
                 />
                 <button
@@ -398,16 +434,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </button>
           </div>
 
-          <div className="flex justify-end pt-4 mt-4 border-t border-white/10">
-            <button
-              type="button"
-              onClick={() => handleSaveList("surgeons", surgeons)}
-              disabled={savingListType === "surgeons"}
-              className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-brand-primary/20 shadow-lg"
-            >
-              {savingListType === "surgeons" ? "Saving..." : "Save Surgeons"}
-            </button>
-          </div>
         </div>
 
         {/* Procedures list */}
@@ -423,6 +449,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   type="text"
                   value={p}
                   onChange={(e) => changeLocalItem(i, e.target.value, setProcedures)}
+                  onBlur={() => persistOnBlur("procedures", procedures)}
                   className="flex-1 py-1 px-3 border border-white/10 focus:border-brand-primary bg-white/5 text-white rounded-lg text-sm focus:outline-none"
                 />
                 <button
@@ -453,16 +480,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </button>
           </div>
 
-          <div className="flex justify-end pt-4 mt-4 border-t border-white/10">
-            <button
-              type="button"
-              onClick={() => handleSaveList("procedures", procedures)}
-              disabled={savingListType === "procedures"}
-              className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-brand-primary/20 shadow-lg"
-            >
-              {savingListType === "procedures" ? "Saving..." : "Save Procedures"}
-            </button>
-          </div>
         </div>
 
         {/* Checklist list */}
@@ -478,6 +495,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   type="text"
                   value={c}
                   onChange={(e) => changeLocalItem(i, e.target.value, setChecklist)}
+                  onBlur={() => persistOnBlur("checklist", checklist)}
                   className="flex-1 py-1 px-3 border border-white/10 focus:border-brand-primary bg-white/5 text-white rounded-lg text-sm focus:outline-none"
                 />
                 <button
@@ -512,16 +530,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             * Renaming an item un-ticks it on existing patients, as checked records are saved by the checklist string.
           </p>
 
-          <div className="flex justify-end pt-4 mt-4 border-t border-white/10">
-            <button
-              type="button"
-              onClick={() => handleSaveList("checklist", checklist)}
-              disabled={savingListType === "checklist"}
-              className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-brand-primary/20 shadow-lg"
-            >
-              {savingListType === "checklist" ? "Saving..." : "Save Checklist"}
-            </button>
-          </div>
         </div>
 
         {/* Complications list */}
@@ -537,6 +545,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   type="text"
                   value={c}
                   onChange={(e) => changeLocalItem(i, e.target.value, setComplications)}
+                  onBlur={() => persistOnBlur("complications", complications)}
                   className="flex-1 py-1 px-3 border border-white/10 focus:border-brand-primary bg-white/5 text-white rounded-lg text-sm focus:outline-none"
                 />
                 <button
@@ -567,16 +576,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </button>
           </div>
 
-          <div className="flex justify-end pt-4 mt-4 border-t border-white/10">
-            <button
-              type="button"
-              onClick={() => handleSaveList("complications", complications)}
-              disabled={savingListType === "complications"}
-              className="bg-brand-primary hover:bg-brand-primary-hover disabled:bg-white/10 disabled:text-white/30 disabled:cursor-default text-white py-1.5 px-4 rounded-xl font-semibold text-xs cursor-pointer border border-brand-primary/20 shadow-lg"
-            >
-              {savingListType === "complications" ? "Saving..." : "Save Complications"}
-            </button>
-          </div>
         </div>
       </div>
 

@@ -159,15 +159,7 @@ export interface TranslationSchema {
   detailsCol: string;
   searchAuditPlaceholder: string;
 
-  // New Drafts, Validation, Pagination, and WhatsApp Keys
-  tabDraftsQueue: string;
-  saveAsDraftBtn: string;
-  draftSavedSuccess: string;
-  draftSubmittedSuccess: string;
-  submitAllDraftsBtn: string;
-  noDraftsMessage: string;
-  deleteDraftBtn: string;
-  editDraftTitle: string;
+  // Validation, Pagination, and WhatsApp Keys
   validationErrorHeader: string;
   whatsappReminderBtn: string;
   whatsappPatientTemplate: string;
@@ -333,15 +325,7 @@ export const translations: Record<"en" | "ar", TranslationSchema> = {
     detailsCol: "Details",
     searchAuditPlaceholder: "Search audit logs by patient ID, user, or action...",
 
-    // New Drafts, Validation, Pagination, and WhatsApp Keys (EN)
-    tabDraftsQueue: "Drafts Hub",
-    saveAsDraftBtn: "Save as Draft",
-    draftSavedSuccess: "Case saved to local drafts successfully! ✓",
-    draftSubmittedSuccess: "Draft submitted to the case database successfully! ✓",
-    submitAllDraftsBtn: "Sync All Drafts",
-    noDraftsMessage: "No drafts in your clinical queue. Ready for offline or quick intakes! ✓",
-    deleteDraftBtn: "Discard Draft",
-    editDraftTitle: "Edit Case Draft",
+    // Validation, Pagination, and WhatsApp Keys (EN)
     validationErrorHeader: "Please resolve clinical warnings before saving:",
     whatsappReminderBtn: "WhatsApp Reminder",
     whatsappPatientTemplate: "Dear [PATIENT], this is a polite reminder from Dr. [SURGEON]'s clinic regarding your recent [PROCEDURE] follow-up status.",
@@ -505,15 +489,7 @@ export const translations: Record<"en" | "ar", TranslationSchema> = {
     detailsCol: "التفاصيل",
     searchAuditPlaceholder: "البحث في سجل التدقيق والمراقبة...",
 
-    // New Drafts, Validation, Pagination, and WhatsApp Keys (AR)
-    tabDraftsQueue: "مركز المسودات",
-    saveAsDraftBtn: "حفظ كمسودة",
-    draftSavedSuccess: "تم حفظ الحالة في المسودات المحلية بنجاح! ✓",
-    draftSubmittedSuccess: "تم إرسال المسودة إلى قاعدة بيانات الحالات بنجاح! ✓",
-    submitAllDraftsBtn: "مزامنة جميع المسودات",
-    noDraftsMessage: "لا توجد مسودات في قائمتك السريرية حالياً. جاهز للإدخال السريع أو دون اتصال! ✓",
-    deleteDraftBtn: "حذف المسودة",
-    editDraftTitle: "تعديل مسودة الحالة",
+    // Validation, Pagination, and WhatsApp Keys (AR)
     validationErrorHeader: "يرجى حل التنبيهات السريرية التالية قبل الحفظ:",
     whatsappReminderBtn: "تذكير واتساب",
     whatsappPatientTemplate: "عزيزي [PATIENT]، نود تذكيرك بموعد أو حالة متابعة [PROCEDURE] مع عيادة الدكتور [SURGEON]. دمتم بصحة وعافية.",

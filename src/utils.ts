@@ -44,7 +44,7 @@ export const iso = (d: Date): string => {
 
 export const daysInSitu = (op: Operation, drains: Drain[]): number => {
   if (!op.OperationDate) return 0;
-  const rem = drains.find((d) => d.PatientID === op.PatientID);
+  const rem = drains.find((d) => d.OperationID === op.id);
   const end = rem ? new Date(rem.RemovedDate) : new Date();
   const start = new Date(op.OperationDate);
   const diffTime = Math.max(0, end.getTime() - start.getTime());

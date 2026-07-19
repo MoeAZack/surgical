@@ -19,6 +19,7 @@ export interface Operation {
 
 export interface Drain {
   id: string;
+  OperationID: string;
   PatientID: string;
   RemovedDate: string;
   RemovedBy: string;
@@ -26,6 +27,7 @@ export interface Drain {
 
 export interface Complication {
   id: string;
+  OperationID: string;
   PatientID: string;
   Complication: string;
   Grade: string;
@@ -37,6 +39,7 @@ export interface Complication {
 
 export interface FollowUp {
   id: string;
+  OperationID: string;
   PatientID: string;
   M1: string;
   M3: string;
@@ -47,6 +50,7 @@ export interface FollowUp {
 
 export interface CheckItem {
   id: string;
+  OperationID: string;
   PatientID: string;
   Item: string;
   Done: "Yes" | "No";
@@ -88,6 +92,8 @@ export interface AppConfig {
   FU2: number;
   FU3: number;
   FU4: number;
+  practiceName?: string;
+  defaultRowsPerPage?: number;
 }
 
 export interface DBState {
@@ -101,25 +107,5 @@ export interface DBState {
   config: AppConfig;
   user: string;
   audit?: AuditEntry[];
-}
-
-export interface CaseDraft {
-  id: string;
-  type: "operation" | "complication";
-  createdAt: string;
-  data: {
-    PatientID: string;
-    Age: number | "";
-    OperationDate: string;
-    Procedure: string;
-    Surgeon: string;
-    DrainPlaced: boolean;
-    Notes: string;
-    // or for complication:
-    Complication?: string;
-    Grade?: string;
-    DateDetected?: string;
-    Management?: string;
-  };
 }
 

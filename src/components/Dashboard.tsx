@@ -20,7 +20,7 @@ import { translations } from "../translations";
 interface DashboardProps {
   db: DBState;
   lang?: "en" | "ar";
-  onOpenDrawer: (pid: string) => void;
+  onOpenDrawer: (operationId: string) => void;
   onGotoDay: (dateStr: string) => void;
 }
 
@@ -41,8 +41,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
   // Current Date string in clinic format
   const todayStr = new Date().toISOString().split("T")[0];
 
+  // Most recent case for a given patient (used when a patient-level record,
+  // like an appointment, needs to open a specific case's timeline drawer).
+  const latestCaseForPatient = (pid: string): Operation | undefined => {
+    const candidates = ops.filter((o) => o.PatientID === pid);
+    if (candidates.length === 0) return undefined;
+    return [...candidates].sort((a, b) => String(b.OperationDate).localeCompare(String(a.OperationDate)))[0];
+  };
+  const openDrawerForPatient = (pid: string) => {
+    const op = latestCaseForPatient(pid);
+    if (op) onOpenDrawer(op.id);
+  };
+
   // 1. Core Metrics Calculations
-  const inSitu = ops.filter((o) => o.DrainPlaced === "Yes" && !drains.some((d) => d.PatientID === o.PatientID));
+  const inSitu = ops.filter((o) => o.DrainPlaced === "Yes" && !drains.some((d) => d.OperationID === o.id));
   const openC = complications.filter((c) => c.Resolved !== "Yes");
 
   const getFollowUpsDue = () => {
@@ -52,7 +64,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
 
     ops.forEach((o) => {
       if (!o.OperationDate) return;
-      const f = followup.find((fu) => fu.PatientID === o.PatientID);
+      const f = followup.find((fu) => fu.OperationID === o.id);
       const outcome = f ? f.FinalOutcome : "Ongoing";
       if (outcome !== "Ongoing") return;
 
@@ -96,12 +108,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
 
   // Success rate
   const closed = ops.filter((o) => {
-    const f = followup.find((fu) => fu.PatientID === o.PatientID);
+    const f = followup.find((fu) => fu.OperationID === o.id);
     return f ? CLOSED_OUTCOMES.includes(f.FinalOutcome) : false;
   });
 
   const successes = closed.filter((o) => {
-    const f = followup.find((fu) => fu.PatientID === o.PatientID);
+    const f = followup.find((fu) => fu.OperationID === o.id);
     return f ? f.FinalOutcome === "Success" : false;
   });
 
@@ -119,14 +131,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
     });
 
     complications.forEach((c) => {
-      const o = ops.find((op) => op.PatientID === c.PatientID);
+      const o = ops.find((op) => op.id === c.OperationID);
       if (o && byOp[o.Procedure]) {
         byOp[o.Procedure].c++;
       }
     });
 
     ops.forEach((o) => {
-      const f = followup.find((fu) => fu.PatientID === o.PatientID);
+      const f = followup.find((fu) => fu.OperationID === o.id);
       if (f && CLOSED_OUTCOMES.includes(f.FinalOutcome)) {
         if (byOp[o.Procedure]) {
           byOp[o.Procedure].cl++;
@@ -164,7 +176,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
     });
 
     complications.forEach((c) => {
-      const o = ops.find((op) => op.PatientID === c.PatientID);
+      const o = ops.find((op) => op.id === c.OperationID);
       if (o) {
         const s = o.Surgeon || "Unknown";
         if (surgeonMap[s]) {
@@ -175,7 +187,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
 
     ops.forEach((o) => {
       const s = o.Surgeon || "Unknown";
-      const f = followup.find((fu) => fu.PatientID === o.PatientID);
+      const f = followup.find((fu) => fu.OperationID === o.id);
       if (f && CLOSED_OUTCOMES.includes(f.FinalOutcome)) {
         if (surgeonMap[s]) {
           surgeonMap[s].closed++;
@@ -270,7 +282,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                     todayAppts.map((appt) => (
                       <div
                         key={appt.id}
-                        onClick={() => onOpenDrawer(appt.PatientID)}
+                        onClick={() => openDrawerForPatient(appt.PatientID)}
                         className="p-4 border border-white/10 rounded-xl bg-black/20 hover:bg-black/30 transition-all cursor-pointer flex items-center justify-between"
                       >
                         <div className="space-y-1">
@@ -324,7 +336,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                       return (
                         <div
                           key={o.id}
-                          onClick={() => onOpenDrawer(o.PatientID)}
+                          onClick={() => onOpenDrawer(o.id)}
                           className="p-3.5 border border-rose-500/20 bg-rose-950/15 hover:bg-rose-950/25 rounded-xl transition-all cursor-pointer flex items-center justify-between"
                         >
                           <div>
@@ -360,7 +372,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                       .map((x) => (
                         <div
                           key={`${x.op.id}-${x.label}`}
-                          onClick={() => onOpenDrawer(x.op.PatientID)}
+                          onClick={() => onOpenDrawer(x.op.id)}
                           className="p-3 border border-amber-500/20 bg-amber-950/10 hover:bg-amber-950/20 rounded-xl transition-all cursor-pointer flex items-center justify-between"
                         >
                           <div>
@@ -458,7 +470,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                     return (
                       <div
                         key={o.id}
-                        onClick={() => onOpenDrawer(o.PatientID)}
+                        onClick={() => onOpenDrawer(o.id)}
                         className={`p-3 border rounded-xl hover:shadow-md transition-all cursor-pointer flex items-center justify-between ${
                           isAlert
                             ? "bg-rose-950/40 border-rose-500/40 hover:bg-rose-900/40 text-white"
@@ -525,7 +537,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ db, lang = "en", onOpenDra
                   dueList.map((x) => (
                     <div
                       key={`${x.op.id}-${x.label}`}
-                      onClick={() => onOpenDrawer(x.op.PatientID)}
+                      onClick={() => onOpenDrawer(x.op.id)}
                       className={`p-3 border rounded-xl hover:shadow-md transition-all cursor-pointer flex items-center justify-between ${
                         x.overdue
                           ? "bg-amber-950/40 border-amber-500/40 hover:bg-amber-900/40 text-white"

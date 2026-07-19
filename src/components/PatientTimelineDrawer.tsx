@@ -5,14 +5,14 @@ import { X, Pencil, CheckCircle2, Calendar, Droplet, AlertCircle, Bookmark, Plus
 import { translations } from "../translations";
 
 interface PatientTimelineDrawerProps {
-  pid: string | null;
+  caseId: string | null;
   db: DBState;
   lang: "en" | "ar";
   onClose: () => void;
   onOpenEdit: (id: string) => void;
-  onToggleCheckItem: (pid: string, item: string, done: boolean) => Promise<void>;
+  onToggleCheckItem: (operationId: string, item: string, done: boolean) => Promise<void>;
   onAddComplication: (comp: {
-    PatientID: string;
+    OperationID: string;
     Complication: string;
     Grade: string;
     DateDetected: string;
@@ -21,7 +21,7 @@ interface PatientTimelineDrawerProps {
 }
 
 export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
-  pid,
+  caseId,
   db,
   lang,
   onClose,
@@ -45,23 +45,23 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
     }
   }, [db.lists.complications, compName]);
 
-  if (!pid) return null;
+  if (!caseId) return null;
 
-  const o = db.operations.find((op) => op.PatientID === pid);
+  const o = db.operations.find((op) => op.id === caseId);
   if (!o) return null;
 
-  const rem = db.drains.find((d) => d.PatientID === pid);
+  const rem = db.drains.find((d) => d.OperationID === o.id);
   const checklistItems = db.lists.checklistItems;
-  const myChecks = db.checks.filter((c) => c.PatientID === pid && c.Done === "Yes");
+  const myChecks = db.checks.filter((c) => c.OperationID === o.id && c.Done === "Yes");
   const checkedNames = new Set(myChecks.map((c) => c.Item));
 
   const myAppts = db.appointments
-    .filter((a) => a.PatientID === pid)
+    .filter((a) => a.PatientID === o.PatientID)
     .sort((a, b) => `${a.Date} ${a.Time}`.localeCompare(`${b.Date} ${b.Time}`));
 
-  const cs = db.complications.filter((c) => c.PatientID === pid);
+  const cs = db.complications.filter((c) => c.OperationID === o.id);
 
-  const f = db.followup.find((fu) => fu.PatientID === pid) || {
+  const f = db.followup.find((fu) => fu.OperationID === o.id) || {
     M1: "—",
     M3: "—",
     M6: "—",
@@ -83,7 +83,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
     setSubmittingComp(true);
     try {
       await onAddComplication({
-        PatientID: pid,
+        OperationID: o.id,
         Complication: compName,
         Grade: compGrade,
         DateDetected: compDate,
@@ -174,7 +174,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                       <input
                         type="checkbox"
                         checked={isChecked}
-                        onChange={(e) => onToggleCheckItem(o.PatientID, item, e.target.checked)}
+                        onChange={(e) => onToggleCheckItem(o.id, item, e.target.checked)}
                         className="w-4.5 h-4.5 accent-brand-primary rounded cursor-pointer"
                       />
                       <span>{item}</span>

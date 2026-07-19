@@ -9,7 +9,7 @@ interface ComplicationsRegistryProps {
   db: DBState;
   lang?: "en" | "ar";
   onAddComplication: (comp: {
-    PatientID: string;
+    OperationID: string;
     Complication: string;
     Grade: string;
     DateDetected: string;
@@ -17,7 +17,7 @@ interface ComplicationsRegistryProps {
   }) => Promise<void>;
   onResolveComplication: (id: string) => Promise<void>;
   onOpenCompEdit: (id: string) => void;
-  onOpenDrawer: (pid: string) => void;
+  onOpenDrawer: (operationId: string) => void;
   onQuickAddList: (kind: "complications", selectId: string) => Promise<string | undefined>;
 }
 
@@ -30,7 +30,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
   onOpenDrawer,
   onQuickAddList
 }) => {
-  const [pidInput, setPidInput] = useState("");
+  const [caseInput, setCaseInput] = useState("");
   const [whatInput, setWhatInput] = useState("");
   const [gradeInput, setGradeInput] = useState("Grade I");
   const [dateInput, setDateInput] = useState(new Date().toISOString().split("T")[0]);
@@ -40,7 +40,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
   // Search, filter & pagination state
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(db.config.defaultRowsPerPage || 10);
 
   // Validation Warnings
   const [dateWarning, setDateWarning] = useState("");
@@ -59,18 +59,18 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
   }, [listConfig, whatInput]);
 
   useEffect(() => {
-    if (ops.length > 0 && !pidInput) {
-      setPidInput(ops[0].PatientID);
+    if (ops.length > 0 && !caseInput) {
+      setCaseInput(ops[0].id);
     }
-  }, [ops, pidInput]);
+  }, [ops, caseInput]);
 
   // Strict Date detected check vs original Operation Date
   useEffect(() => {
-    if (!pidInput || !dateInput) {
+    if (!caseInput || !dateInput) {
       setDateWarning("");
       return;
     }
-    const matchingOp = ops.find(o => o.PatientID.toUpperCase() === pidInput.toUpperCase());
+    const matchingOp = ops.find(o => o.id === caseInput);
     if (matchingOp) {
       const opDateObj = new Date(matchingOp.OperationDate);
       const compDateObj = new Date(dateInput);
@@ -86,14 +86,14 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
     } else {
       setDateWarning("");
     }
-  }, [pidInput, dateInput, ops, isRTL]);
+  }, [caseInput, dateInput, ops, isRTL]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pidInput) return;
+    if (!caseInput) return;
 
     // Strict validation blocks
-    const matchingOp = ops.find(o => o.PatientID.toUpperCase() === pidInput.toUpperCase());
+    const matchingOp = ops.find(o => o.id === caseInput);
     if (matchingOp && new Date(dateInput) < new Date(matchingOp.OperationDate)) {
       setDateWarning(
         isRTL
@@ -106,7 +106,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
     setSubmitting(true);
     try {
       await onAddComplication({
-        PatientID: pidInput,
+        OperationID: caseInput,
         Complication: whatInput || "Other",
         Grade: gradeInput,
         DateDetected: dateInput,
@@ -169,8 +169,8 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                 {t.patientId}
               </label>
               <select
-                value={pidInput}
-                onChange={(e) => setPidInput(e.target.value)}
+                value={caseInput}
+                onChange={(e) => setCaseInput(e.target.value)}
                 className="w-full py-2 px-3 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-brand-primary bg-brand-bg text-white"
                 required
               >
@@ -178,8 +178,8 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                   <option value="">{isRTL ? "لا توجد عمليات مسجلة" : "No operations logged"}</option>
                 )}
                 {ops.map((o) => (
-                  <option key={o.id} value={o.PatientID} className="bg-brand-bg text-white">
-                    {o.PatientID} ({o.Procedure})
+                  <option key={o.id} value={o.id} className="bg-brand-bg text-white">
+                    {o.PatientID} ({o.Procedure || "—"}, {fmt(o.OperationDate)})
                   </option>
                 ))}
               </select>
@@ -310,7 +310,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => onOpenDrawer(c.PatientID)}
+                      onClick={() => onOpenDrawer(c.OperationID)}
                       className="font-mono text-xs font-bold text-brand-primary-light border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                     >
                       {c.PatientID}
@@ -404,7 +404,7 @@ export const ComplicationsRegistry: React.FC<ComplicationsRegistryProps> = ({
                     </td>
                     <td className="py-3.5 px-6">
                       <button
-                        onClick={() => onOpenDrawer(c.PatientID)}
+                        onClick={() => onOpenDrawer(c.OperationID)}
                         className="font-mono text-xs font-bold text-brand-primary-light hover:text-brand-primary border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                       >
                         {c.PatientID}

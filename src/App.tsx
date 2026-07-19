@@ -48,7 +48,8 @@ type OperationPayload = {
 };
 
 type ComplicationPayload = {
-  PatientID: string;
+  OperationID: string;
+  PatientID?: string;
   Complication: string;
   Grade: string;
   DateDetected: string;
@@ -64,6 +65,7 @@ const TabFallback = () => (
 export default function App() {
   const [db, setDb] = useState<DBState | null>(null);
   const [authed, setAuthed] = useState<boolean>(false);
+  const [isPrimary, setIsPrimary] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("dash");
   const [loading, setLoading] = useState<boolean>(true);
   const [busy, setBusy] = useState<boolean>(false);
@@ -107,6 +109,7 @@ export default function App() {
   const [chainPrompt, setChainPrompt] = useState<{
     type: "schedule-wound-check" | "drain-removal-followup" | "mark-drain-removed";
     patientID: string;
+    operationID?: string;
     suggestedDate?: string;
     suggestedTime?: string;
     appointmentType?: string;
@@ -116,7 +119,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   // Shared drawers/modals state
-  const [selectedPid, setSelectedPid] = useState<string | null>(null);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [editingOperation, setEditingOperation] = useState<Operation | null>(null);
   const [editingComplication, setEditingComplication] = useState<Complication | null>(null);
 
@@ -158,6 +161,7 @@ export default function App() {
     try {
       await refetch();
       void flushIfNeeded();
+      apiJson("/api/me").then((me) => setIsPrimary(!!me.primary)).catch(() => {});
     } catch (err: any) {
       if (err instanceof AuthError) {
         setAuthed(false);
@@ -282,9 +286,11 @@ export default function App() {
   const applyOptimisticComplication = (comp: ComplicationPayload) => {
     setDb((prev) => {
       if (!prev) return prev;
+      const op = prev.operations.find((o) => o.id === comp.OperationID);
       const localComp: any = {
         id: "local_c_" + Date.now(),
-        PatientID: comp.PatientID,
+        OperationID: comp.OperationID,
+        PatientID: comp.PatientID || op?.PatientID || "",
         Complication: comp.Complication || "Other",
         Grade: comp.Grade || "",
         DateDetected: comp.DateDetected || new Date().toISOString().split("T")[0],
@@ -355,15 +361,16 @@ export default function App() {
     );
   };
 
-  const handleMarkDrainRemoved = async (pid: string) => {
+  const handleMarkDrainRemoved = async (operationId: string) => {
     setBusy(true);
     try {
-      const data = await apiJson("/api/drains/remove", { method: "POST", ...jsonBody({ PatientID: pid }) });
+      const data = await apiJson("/api/drains/remove", { method: "POST", ...jsonBody({ OperationID: operationId }) });
       setDb(data);
       showToast("Drain successfully marked as removed.");
+      const op = data.operations.find((o: any) => o.id === operationId);
       setChainPrompt({
         type: "drain-removal-followup",
-        patientID: pid,
+        patientID: op?.PatientID || "",
         suggestedDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         suggestedTime: "11:00",
         appointmentType: "1-week review"
@@ -377,9 +384,9 @@ export default function App() {
     }
   };
 
-  const handleUndoDrainRemoval = async (pid: string) => {
+  const handleUndoDrainRemoval = async (operationId: string) => {
     await runMutation(
-      () => apiJson("/api/drains/undo", { method: "POST", ...jsonBody({ PatientID: pid }) }),
+      () => apiJson("/api/drains/undo", { method: "POST", ...jsonBody({ OperationID: operationId }) }),
       "Drain removal undone. Back in situ status."
     );
   };
@@ -433,15 +440,15 @@ export default function App() {
     );
   };
 
-  const handleSetFollowUp = async (PatientID: string, field: string, value: string) => {
+  const handleSetFollowUp = async (operationId: string, field: string, value: string) => {
     await runMutation(
-      () => apiJson("/api/followup", { method: "POST", ...jsonBody({ PatientID, field, value }) }),
+      () => apiJson("/api/followup", { method: "POST", ...jsonBody({ OperationID: operationId, field, value }) }),
       "Milestone record saved."
     );
   };
 
-  const handleToggleCheckItem = async (PatientID: string, item: string, done: boolean) => {
-    await runMutation(() => apiJson("/api/checks", { method: "POST", ...jsonBody({ PatientID, item, done }) }));
+  const handleToggleCheckItem = async (operationId: string, item: string, done: boolean) => {
+    await runMutation(() => apiJson("/api/checks", { method: "POST", ...jsonBody({ OperationID: operationId, item, done }) }));
   };
 
   const handleAddAppointment = async (appt: { PatientID: string; Date: string; Time: string; Type: string; Notes: string }) => {
@@ -464,10 +471,9 @@ export default function App() {
           const typeLower = appt.Type.toLowerCase();
           const notesLower = (appt.Notes || "").toLowerCase();
           if (typeLower.includes("drain") || typeLower.includes("removal") || notesLower.includes("drain") || notesLower.includes("removal")) {
-            const op = db!.operations.find((o) => o.PatientID === appt.PatientID);
-            const hasActiveDrain = op && op.DrainPlaced === "Yes" && !db!.drains.some((d) => d.PatientID === appt.PatientID);
-            if (hasActiveDrain) {
-              setChainPrompt({ type: "mark-drain-removed", patientID: appt.PatientID });
+            const op = db!.operations.find((o) => o.PatientID === appt.PatientID && o.DrainPlaced === "Yes" && !db!.drains.some((d) => d.OperationID === o.id));
+            if (op) {
+              setChainPrompt({ type: "mark-drain-removed", patientID: appt.PatientID, operationID: op.id });
             }
           }
         }
@@ -562,9 +568,9 @@ export default function App() {
         Notes: cp.type === "schedule-wound-check" ? "Auto-scheduled post-op wound check." : "Auto-scheduled post-drain-removal follow-up."
       });
       setActiveTab("appt");
-    } else if (cp.type === "mark-drain-removed") {
+    } else if (cp.type === "mark-drain-removed" && cp.operationID) {
       await runMutation(
-        () => apiJson("/api/drains/remove", { method: "POST", ...jsonBody({ PatientID: cp.patientID }) }),
+        () => apiJson("/api/drains/remove", { method: "POST", ...jsonBody({ OperationID: cp.operationID }) }),
         "Drain successfully marked as removed today. ✓"
       );
     }
@@ -628,7 +634,7 @@ export default function App() {
       {(offline || outboxCount > 0) && (
         <button
           onClick={() => handleTabChange("queue")}
-          className={`fixed top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-bold shadow-lg backdrop-blur-md border transition-all cursor-pointer ${
+          className={`fixed top-[calc(0.75rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-bold shadow-lg backdrop-blur-md border transition-all cursor-pointer ${
             offline
               ? "bg-amber-950/80 border-amber-500/50 text-amber-200"
               : "bg-brand-primary/15 border-brand-primary/40 text-brand-primary-light"
@@ -644,13 +650,13 @@ export default function App() {
       )}
 
       {/* MOBILE HEADER */}
-      <header className="md:hidden bg-black/40 backdrop-blur-md text-white p-4 flex items-center justify-between sticky top-0 z-40 border-b border-white/10" dir={isRTL ? "rtl" : "ltr"}>
+      <header className="safe-top md:hidden bg-black/40 backdrop-blur-md text-white p-4 flex items-center justify-between sticky top-0 z-40 border-b border-white/10" dir={isRTL ? "rtl" : "ltr"}>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-brand-primary flex items-center justify-center font-bold text-slate-950 text-base shadow-sm shadow-brand-primary/25">
             ＋
           </div>
           <div className={isRTL ? "text-right" : "text-left"}>
-            <h1 className="font-display font-bold text-sm tracking-wide text-white">{t.appTitle}</h1>
+            <h1 className="font-display font-bold text-sm tracking-wide text-white">{db.config.practiceName || t.appTitle}</h1>
             <span className="text-[10px] text-white/60 block -mt-1 font-semibold">{t.practiceMgmt}</span>
           </div>
         </div>
@@ -672,7 +678,7 @@ export default function App() {
 
       {/* SIDEBAR NAVIGATION */}
       <aside
-        className={`fixed md:sticky top-[60px] md:top-0 bottom-0 w-full md:w-64 bg-black/30 backdrop-blur-xl text-white z-30 transition-transform duration-300 md:translate-x-0 flex flex-col justify-between ${
+        className={`safe-bottom fixed md:sticky top-[60px] md:top-0 bottom-0 w-full md:w-64 bg-black/30 backdrop-blur-xl text-white z-30 transition-transform duration-300 md:translate-x-0 flex flex-col justify-between ${
           isRTL ? "right-0 border-l" : "left-0 border-r"
         } border-white/10 ${
           mobileMenuOpen ? "translate-x-0" : isRTL ? "translate-x-full" : "-translate-x-full"
@@ -687,7 +693,7 @@ export default function App() {
                   ＋
                 </div>
                 <div className={isRTL ? "text-right" : "text-left"}>
-                  <h1 className="font-display font-bold text-base tracking-wide leading-none text-white">{t.appTitle}</h1>
+                  <h1 className="font-display font-bold text-base tracking-wide leading-none text-white">{db.config.practiceName || t.appTitle}</h1>
                   <span className="text-[10px] text-white/40 font-semibold block mt-1 tracking-wider uppercase">
                     {t.practiceMgmt}
                   </span>
@@ -778,14 +784,14 @@ export default function App() {
       <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full relative z-10">
         <Suspense fallback={<TabFallback />}>
           {activeTab === "dash" && (
-            <Dashboard db={db} lang={lang} onOpenDrawer={(pid) => setSelectedPid(pid)} onGotoDay={jumpToCalendarDate} />
+            <Dashboard db={db} lang={lang} onOpenDrawer={(caseId) => setSelectedCaseId(caseId)} onGotoDay={jumpToCalendarDate} />
           )}
 
           {activeTab === "ops" && (
             <OperationsLog
               db={db}
               lang={lang}
-              onOpenDrawer={(pid) => setSelectedPid(pid)}
+              onOpenDrawer={(caseId) => setSelectedCaseId(caseId)}
               onOpenEdit={(id) => {
                 const op = db.operations.find((x) => x.id === id);
                 if (op) setEditingOperation(op);
@@ -801,7 +807,7 @@ export default function App() {
               onAddAppointment={handleAddAppointment}
               onSetStatus={handleSetAppointmentStatus}
               onDeleteAppointment={handleDeleteAppointment}
-              onOpenDrawer={(pid) => setSelectedPid(pid)}
+              onOpenDrawer={(caseId) => setSelectedCaseId(caseId)}
               selectedDateFromDash={jumpDate}
               onClearDashDate={() => setJumpDate(undefined)}
             />
@@ -813,7 +819,7 @@ export default function App() {
               lang={lang}
               onMarkRemoved={handleMarkDrainRemoved}
               onUndoRemoval={handleUndoDrainRemoval}
-              onOpenDrawer={(pid) => setSelectedPid(pid)}
+              onOpenDrawer={(caseId) => setSelectedCaseId(caseId)}
               onShowToast={(msg, err) => showToast(msg, err)}
             />
           )}
@@ -828,13 +834,13 @@ export default function App() {
                 const c = db.complications.find((x) => x.id === id);
                 if (c) setEditingComplication(c);
               }}
-              onOpenDrawer={(pid) => setSelectedPid(pid)}
+              onOpenDrawer={(caseId) => setSelectedCaseId(caseId)}
               onQuickAddList={handleQuickAddList}
             />
           )}
 
           {activeTab === "fu" && (
-            <FollowUpMilestones db={db} lang={lang} onSetFollowUp={handleSetFollowUp} onOpenDrawer={(pid) => setSelectedPid(pid)} />
+            <FollowUpMilestones db={db} lang={lang} onSetFollowUp={handleSetFollowUp} onOpenDrawer={(caseId) => setSelectedCaseId(caseId)} />
           )}
 
           {activeTab === "queue" && (
@@ -850,6 +856,7 @@ export default function App() {
               onSaveConfig={handleSaveConfig}
               onSaveList={handleSaveList}
               onUploadBackup={handleUploadBackup}
+              isPrimary={isPrimary}
             />
           )}
 
@@ -862,7 +869,7 @@ export default function App() {
       {/* GLOBAL TOAST ALERTS */}
       {toast && (
         <div
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl shadow-2xl font-semibold text-xs transition-all duration-300 z-50 flex items-center gap-2 border backdrop-blur-md ${
+          className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl shadow-2xl font-semibold text-xs transition-all duration-300 z-50 flex items-center gap-2 border backdrop-blur-md max-w-[92vw] ${
             toast.isError
               ? "bg-rose-950/80 border-rose-500 text-rose-200"
               : "bg-brand-primary/10 border-brand-primary/30 text-brand-primary-light"
@@ -875,10 +882,10 @@ export default function App() {
 
       {/* DRAWERS & MODALS CONDITIONAL MOUNT */}
       <PatientTimelineDrawer
-        pid={selectedPid}
+        caseId={selectedCaseId}
         db={db}
         lang={lang}
-        onClose={() => setSelectedPid(null)}
+        onClose={() => setSelectedCaseId(null)}
         onOpenEdit={(id) => {
           const op = db.operations.find((x) => x.id === id);
           if (op) setEditingOperation(op);

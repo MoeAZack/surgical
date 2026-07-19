@@ -7,7 +7,7 @@ import { translations } from "../translations";
 interface OperationsLogProps {
   db: DBState;
   lang?: "en" | "ar";
-  onOpenDrawer: (pid: string) => void;
+  onOpenDrawer: (operationId: string) => void;
   onOpenEdit: (id: string) => void;
   onNavigateToNew: () => void;
 }
@@ -30,7 +30,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(db.config.defaultRowsPerPage || 10);
 
   // Reset page when filters change
   useEffect(() => {
@@ -65,7 +65,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
 
     // Outcome filter
     if (outcomeFilter) {
-      const f = followup.find((fu) => fu.PatientID === o.PatientID);
+      const f = followup.find((fu) => fu.OperationID === o.id);
       const val = f ? f.FinalOutcome : "Ongoing";
       if (val !== outcomeFilter) return false;
     }
@@ -73,7 +73,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
     // Drain filter
     if (drainFilter) {
       const isPlaced = o.DrainPlaced === "Yes";
-      const isRemoved = drains.some((d) => d.PatientID === o.PatientID);
+      const isRemoved = drains.some((d) => d.OperationID === o.id);
       if (drainFilter === "In situ" && (!isPlaced || isRemoved)) return false;
       if (drainFilter === "Removed" && (!isPlaced || !isRemoved)) return false;
       if (drainFilter === "None" && isPlaced) return false;
@@ -86,8 +86,8 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
     return true;
   });
 
-  const getCheckPill = (pid: string) => {
-    const myChecks = checks.filter((c) => c.PatientID === pid && c.Done === "Yes");
+  const getCheckPill = (operationId: string) => {
+    const myChecks = checks.filter((c) => c.OperationID === operationId && c.Done === "Yes");
     const checkedNames = new Set(myChecks.map((c) => c.Item));
     const total = checklistItems.length;
     const done = checklistItems.filter((item) => checkedNames.has(item)).length;
@@ -109,7 +109,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
   const getDrainStatusPill = (o: Operation) => {
     if (o.DrainPlaced !== "Yes") return <span className="text-white/20">—</span>;
 
-    const rem = drains.find((d) => d.PatientID === o.PatientID);
+    const rem = drains.find((d) => d.OperationID === o.id);
     if (rem) {
       return (
         <span className="inline-block bg-white/10 text-white/50 border border-white/5 py-0.5 px-2 rounded-full text-xs font-medium">
@@ -125,8 +125,8 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
     }
   };
 
-  const getFinalOutcomePill = (pid: string) => {
-    const f = followup.find((fu) => fu.PatientID === pid);
+  const getFinalOutcomePill = (operationId: string) => {
+    const f = followup.find((fu) => fu.OperationID === operationId);
     const val = f ? f.FinalOutcome : "Ongoing";
 
     let cls = "bg-white/10 text-white/60 border border-white/10";
@@ -320,7 +320,54 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
           </div>
         )}
 
-        <div className="overflow-x-auto">
+        {/* Mobile Stack View */}
+        <div className="block md:hidden divide-y divide-white/10">
+          {paginatedOps.length > 0 ? (
+            paginatedOps.map((o) => (
+              <div key={o.id} className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => onOpenDrawer(o.id)}
+                    className="font-mono text-xs font-bold text-brand-primary-light border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
+                  >
+                    {o.PatientID}
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-white/50">{fmt(o.OperationDate)}</span>
+                    <button
+                      onClick={() => onOpenEdit(o.id)}
+                      title="Edit"
+                      className="p-1.5 border border-white/10 rounded-lg hover:border-brand-primary hover:text-brand-primary-light hover:bg-brand-primary/10 transition-all text-white/60 cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-white text-sm">{o.Procedure || "—"}</h4>
+                  <p className="text-xs text-white/50 mt-0.5">{o.Surgeon || "—"} {o.Age ? `· Age ${o.Age}` : ""}</p>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-white/40 uppercase font-bold">{t.checklistCol}</span>
+                    {getCheckPill(o.id)}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-white/40 uppercase font-bold">{t.drainCol}</span>
+                    {getDrainStatusPill(o)}
+                  </div>
+                </div>
+                <div>{getFinalOutcomePill(o.id)}</div>
+              </div>
+            ))
+          ) : (
+            <div className="py-12 text-center text-white/40 text-sm">{t.noRecordsFound}</div>
+          )}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse" dir={isRTL ? "rtl" : "ltr"}>
             <thead>
               <tr className="bg-white/5 border-b border-white/10 text-white/40 font-bold text-[10.5px] uppercase tracking-wider">
@@ -352,7 +399,7 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
                     </td>
                     <td className="py-3 px-6 text-right">
                       <button
-                        onClick={() => onOpenDrawer(o.PatientID)}
+                        onClick={() => onOpenDrawer(o.id)}
                         className="font-mono text-xs font-bold text-brand-primary-light hover:text-brand-primary border-b border-dashed border-brand-primary hover:border-solid transition-all text-left cursor-pointer"
                       >
                         {o.PatientID}
@@ -362,9 +409,9 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
                     <td className="py-3 px-6 text-right">{fmt(o.OperationDate)}</td>
                     <td className="py-3 px-6 text-right font-medium text-white">{o.Procedure}</td>
                     <td className="py-3 px-6 text-right">{o.Surgeon}</td>
-                    <td className="py-3 px-6 text-center">{getCheckPill(o.PatientID)}</td>
+                    <td className="py-3 px-6 text-center">{getCheckPill(o.id)}</td>
                     <td className="py-3 px-6 text-center">{getDrainStatusPill(o)}</td>
-                    <td className="py-3 px-6 text-left">{getFinalOutcomePill(o.PatientID)}</td>
+                    <td className="py-3 px-6 text-left">{getFinalOutcomePill(o.id)}</td>
                   </tr>
                 ))
               ) : (
