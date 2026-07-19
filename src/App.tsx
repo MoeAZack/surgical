@@ -1,4 +1,5 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { applyTheme, ThemeColor } from "./theme";
 import { DBState, Operation, Complication } from "./types";
 import { PatientTimelineDrawer } from "./components/PatientTimelineDrawer";
 import { EditOperationModal } from "./components/EditOperationModal";
@@ -81,11 +82,12 @@ export default function App() {
   });
 
   // Accent Theme Color State
-  const [themeColor, setThemeColor] = useState<"emerald" | "teal" | "indigo" | "rose" | "violet" | "amber" | "slate" | "blue">(() => {
-    return (localStorage.getItem("themeColor") as any) || "emerald";
+  const [themeColor, setThemeColor] = useState<ThemeColor>(() => {
+    return (localStorage.getItem("themeColor") as ThemeColor) || "emerald";
   });
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  const handleThemeColorChange = (color: typeof themeColor) => {
+  const handleThemeColorChange = (color: ThemeColor) => {
     setThemeColor(color);
     localStorage.setItem("themeColor", color);
   };
@@ -98,12 +100,17 @@ export default function App() {
   } | null>(null);
   const [quickAddValue, setQuickAddValue] = useState("");
 
-  // Synchronize theme class on document.body for dynamic backgrounds
+  // Synchronize theme class on document.body for dynamic backgrounds, and
+  // also apply the theme's variables as direct inline styles (belt-and-
+  // suspenders — some browsers are slow to repaint var()-based backgrounds
+  // behind backdrop-filter when only a class-based custom property changes).
   useEffect(() => {
     const classes = Array.from(document.body.classList).filter((c) => c.startsWith("theme-"));
     classes.forEach((c) => document.body.classList.remove(c));
     document.body.classList.add(`theme-${themeColor}`);
-  }, [themeColor]);
+    applyTheme(rootRef.current, themeColor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [themeColor, db]);
 
   // Chained Actions Proposal state
   const [chainPrompt, setChainPrompt] = useState<{
@@ -620,7 +627,7 @@ export default function App() {
   ];
 
   return (
-    <div className={`min-h-screen flex flex-col md:flex-row bg-brand-bg text-white relative overflow-hidden font-sans antialiased theme-${themeColor} transition-colors duration-300`} dir={isRTL ? "rtl" : "ltr"}>
+    <div ref={rootRef} className={`min-h-screen flex flex-col md:flex-row bg-brand-bg text-white relative overflow-hidden font-sans antialiased theme-${themeColor} transition-colors duration-300`} dir={isRTL ? "rtl" : "ltr"}>
       {/* Background Mesh Gradients */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-primary/15 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-brand-secondary/15 rounded-full blur-[150px] pointer-events-none"></div>
