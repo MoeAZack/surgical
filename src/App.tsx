@@ -23,7 +23,9 @@ import {
   Clock,
   CloudOff,
   UploadCloud,
-  LogOut
+  LogOut,
+  ScrollText,
+  Lock
 } from "lucide-react";
 
 // Code-split the heavy tab views so the initial bundle stays small.
@@ -36,6 +38,7 @@ const FollowUpMilestones = lazy(() => import("./components/FollowUpMilestones").
 const SettingsPanel = lazy(() => import("./components/SettingsPanel").then((m) => ({ default: m.SettingsPanel })));
 const NewOperationForm = lazy(() => import("./components/NewOperationForm").then((m) => ({ default: m.NewOperationForm })));
 const OfflineQueue = lazy(() => import("./components/OfflineQueue").then((m) => ({ default: m.OfflineQueue })));
+const AuditLog = lazy(() => import("./components/AuditLog").then((m) => ({ default: m.AuditLog })));
 
 type OperationPayload = {
   PatientID: string;
@@ -67,6 +70,7 @@ export default function App() {
   const [db, setDb] = useState<DBState | null>(null);
   const [authed, setAuthed] = useState<boolean>(false);
   const [isPrimary, setIsPrimary] = useState<boolean>(false);
+  const [role, setRole] = useState<"full" | "readonly">("full");
   const [activeTab, setActiveTab] = useState<string>("dash");
   const [loading, setLoading] = useState<boolean>(true);
   const [busy, setBusy] = useState<boolean>(false);
@@ -168,7 +172,10 @@ export default function App() {
     try {
       await refetch();
       void flushIfNeeded();
-      apiJson("/api/me").then((me) => setIsPrimary(!!me.primary)).catch(() => {});
+      apiJson("/api/me").then((me) => {
+        setIsPrimary(!!me.primary);
+        setRole(me.role === "readonly" ? "readonly" : "full");
+      }).catch(() => {});
     } catch (err: any) {
       if (err instanceof AuthError) {
         setAuthed(false);
@@ -515,6 +522,20 @@ export default function App() {
     );
   };
 
+  const handleUploadPhoto = async (payload: { OperationID: string; filename: string; mimeType: string; dataBase64: string }) => {
+    await runMutation(
+      () => apiJson("/api/photos", { method: "POST", ...jsonBody(payload) }),
+      "Photo uploaded! ✓"
+    );
+  };
+
+  const handleDeletePhoto = async (id: string) => {
+    await runMutation(
+      () => apiJson(`/api/photos/${encodeURIComponent(id)}`, { method: "DELETE" }),
+      "Photo deleted."
+    );
+  };
+
   const handleUploadBackup = async (backupData: any) => {
     await runMutation(
       () => apiJson("/api/backup/upload", { method: "POST", ...jsonBody(backupData) }),
@@ -622,6 +643,7 @@ export default function App() {
     { id: "drains", label: t.tabDrains, icon: Droplet },
     { id: "comps", label: t.tabComplications, icon: AlertTriangle },
     { id: "fu", label: t.tabFollowUps, icon: Bookmark },
+    { id: "audit", label: t.auditLogTitle, icon: ScrollText },
     { id: "queue", label: isRTL ? "قائمة المزامنة" : "Sync Queue", icon: UploadCloud },
     { id: "set", label: t.tabSettings, icon: Settings }
   ];
@@ -637,23 +659,33 @@ export default function App() {
         <div className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-primary-light via-brand-secondary-light to-brand-primary animate-pulse z-50 shadow-sm" />
       )}
 
-      {/* Offline / queued banner */}
-      {(offline || outboxCount > 0) && (
-        <button
-          onClick={() => handleTabChange("queue")}
-          className={`fixed top-[calc(0.75rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-bold shadow-lg backdrop-blur-md border transition-all cursor-pointer ${
-            offline
-              ? "bg-amber-950/80 border-amber-500/50 text-amber-200"
-              : "bg-brand-primary/15 border-brand-primary/40 text-brand-primary-light"
-          }`}
-        >
-          <CloudOff className="w-3.5 h-3.5" />
-          {offline
-            ? outboxCount > 0
-              ? `Offline · ${outboxCount} queued`
-              : "Offline — changes will queue"
-            : `${outboxCount} pending sync — tap to sync`}
-        </button>
+      {/* Stacked status banners (read-only / offline / pending sync) */}
+      {(role === "readonly" || offline || outboxCount > 0) && (
+        <div className="fixed top-[calc(0.75rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5">
+          {role === "readonly" && (
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-bold shadow-lg backdrop-blur-md border bg-slate-900/80 border-white/20 text-white/70">
+              <Lock className="w-3.5 h-3.5" />
+              {isRTL ? "وصول للقراءة فقط" : "Read-only access"}
+            </div>
+          )}
+          {(offline || outboxCount > 0) && (
+            <button
+              onClick={() => handleTabChange("queue")}
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-bold shadow-lg backdrop-blur-md border transition-all cursor-pointer ${
+                offline
+                  ? "bg-amber-950/80 border-amber-500/50 text-amber-200"
+                  : "bg-brand-primary/15 border-brand-primary/40 text-brand-primary-light"
+              }`}
+            >
+              <CloudOff className="w-3.5 h-3.5" />
+              {offline
+                ? outboxCount > 0
+                  ? `Offline · ${outboxCount} queued`
+                  : "Offline — changes will queue"
+                : `${outboxCount} pending sync — tap to sync`}
+            </button>
+          )}
+        </div>
       )}
 
       {/* MOBILE HEADER */}
@@ -850,6 +882,8 @@ export default function App() {
             <FollowUpMilestones db={db} lang={lang} onSetFollowUp={handleSetFollowUp} onOpenDrawer={(caseId) => setSelectedCaseId(caseId)} />
           )}
 
+          {activeTab === "audit" && <AuditLog db={db} lang={lang} />}
+
           {activeTab === "queue" && (
             <OfflineQueue lang={lang} offline={offline} onSync={flushIfNeeded} />
           )}
@@ -899,6 +933,9 @@ export default function App() {
         }}
         onToggleCheckItem={handleToggleCheckItem}
         onAddComplication={handleAddComplication}
+        onUploadPhoto={handleUploadPhoto}
+        onDeletePhoto={handleDeletePhoto}
+        readOnly={role === "readonly"}
       />
 
       {editingOperation && (

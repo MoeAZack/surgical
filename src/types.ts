@@ -75,6 +75,17 @@ export interface AuditEntry {
   Details: string;
 }
 
+export interface Photo {
+  id: string;
+  OperationID: string;
+  PatientID: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
 export interface ListConfig {
   surgeons: string[];
   procedures: string[];
@@ -103,6 +114,7 @@ export interface DBState {
   followup: FollowUp[];
   checks: CheckItem[];
   appointments: Appointment[];
+  photos: Photo[];
   lists: ListConfig;
   config: AppConfig;
   user: string;

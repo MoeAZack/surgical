@@ -1,8 +1,11 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { DBState } from "../types";
 import { fmt, daysInSitu, addMonths, isFollowUpLate } from "../utils";
-import { X, Pencil, CheckCircle2, Calendar, Droplet, AlertCircle, Bookmark, PlusCircle } from "lucide-react";
+import { X, Pencil, CheckCircle2, Calendar, Droplet, AlertCircle, Bookmark, PlusCircle, Camera, ImagePlus, Trash2 } from "lucide-react";
 import { translations } from "../translations";
+import { AuthedImage } from "./AuthedImage";
+
+const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 
 interface PatientTimelineDrawerProps {
   caseId: string | null;
@@ -18,6 +21,9 @@ interface PatientTimelineDrawerProps {
     DateDetected: string;
     Management: string;
   }) => Promise<void>;
+  onUploadPhoto: (payload: { OperationID: string; filename: string; mimeType: string; dataBase64: string }) => Promise<void>;
+  onDeletePhoto: (id: string) => Promise<void>;
+  readOnly?: boolean;
 }
 
 export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
@@ -27,7 +33,10 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
   onClose,
   onOpenEdit,
   onToggleCheckItem,
-  onAddComplication
+  onAddComplication,
+  onUploadPhoto,
+  onDeletePhoto,
+  readOnly = false
 }) => {
   const [showAddComp, setShowAddComp] = useState(false);
   const [compName, setCompName] = useState("");
@@ -35,6 +44,9 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
   const [compDate, setCompDate] = useState(new Date().toISOString().split("T")[0]);
   const [compManagement, setCompManagement] = useState("");
   const [submittingComp, setSubmittingComp] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [previewPhotoId, setPreviewPhotoId] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const t = translations[lang];
   const isRTL = lang === "ar";
@@ -60,6 +72,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
     .sort((a, b) => `${a.Date} ${a.Time}`.localeCompare(`${b.Date} ${b.Time}`));
 
   const cs = db.complications.filter((c) => c.OperationID === o.id);
+  const photos = db.photos.filter((p) => p.OperationID === o.id);
 
   const f = db.followup.find((fu) => fu.OperationID === o.id) || {
     M1: "—",
@@ -75,6 +88,35 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
     { key: "M6", label: lang === "en" ? "6 months" : "٦ أشهر", months: db.config.FU3 },
     { key: "M12", label: lang === "en" ? "12 months" : "١٢ شهراً", months: db.config.FU4 }
   ];
+
+  const handlePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      window.dispatchEvent(new CustomEvent("clinical_toast", { detail: { message: isRTL ? "الملفات المدعومة صور فقط." : "Only image files are supported.", isError: true } }));
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      window.dispatchEvent(new CustomEvent("clinical_toast", { detail: { message: isRTL ? "يجب أن تكون الصورة أقل من 6 ميغابايت." : "Image must be under 6MB.", isError: true } }));
+      return;
+    }
+    setUploadingPhoto(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1] || "";
+        await onUploadPhoto({ OperationID: o.id, filename: file.name, mimeType: file.type, dataBase64: base64 });
+      } catch {
+        // toast already fired by the parent handler
+      } finally {
+        setUploadingPhoto(false);
+      }
+    };
+    reader.onerror = () => setUploadingPhoto(false);
+    reader.readAsDataURL(file);
+  };
 
   const handleLogComplication = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -232,6 +274,62 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                 </div>
               ) : (
                 <p className="text-white/40 italic text-xs">{t.noDrainsReported}</p>
+              )}
+            </div>
+
+            {/* Photos */}
+            <div className="pt-5">
+              <div className={`flex items-center justify-between mb-3 ${isRTL ? "flex-row-reverse" : "flex-row"}`}>
+                <h4 className={`font-display font-bold text-[10.5px] uppercase tracking-wider text-white/40 flex items-center gap-1.5 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <Camera className="w-3.5 h-3.5 text-brand-primary" /> {isRTL ? "الصور السريرية" : "Clinical Photos"}
+                </h4>
+                {!readOnly && (
+                  <button
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    title={isRTL ? "إضافة صورة" : "Add photo"}
+                    className="p-1 rounded-lg border border-white/10 text-brand-primary hover:text-brand-primary-hover hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-40"
+                  >
+                    <ImagePlus className="w-4.5 h-4.5" />
+                  </button>
+                )}
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoSelected}
+                />
+              </div>
+
+              {uploadingPhoto && (
+                <p className="text-[10.5px] text-white/50 italic mb-2">{isRTL ? "جارٍ الرفع..." : "Uploading…"}</p>
+              )}
+
+              {photos.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {photos.map((p) => (
+                    <div key={p.id} className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-white/5">
+                      <AuthedImage
+                        src={`/api/photos/${p.id}`}
+                        alt={p.filename}
+                        className="w-full h-full object-cover cursor-pointer"
+                        onClick={() => setPreviewPhotoId(p.id)}
+                      />
+                      {!readOnly && (
+                        <button
+                          onClick={() => onDeletePhoto(p.id)}
+                          title={isRTL ? "حذف" : "Delete"}
+                          className="absolute top-1 right-1 bg-black/60 hover:bg-rose-600/80 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-white/40 italic text-xs">{isRTL ? "لا توجد صور مرفوعة." : "No photos uploaded yet."}</p>
               )}
             </div>
 
@@ -416,6 +514,26 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
           </div>
         </div>
       </aside>
+
+      {/* Photo lightbox */}
+      {previewPhotoId && (
+        <div
+          className="fixed inset-0 bg-black/85 z-[60] flex items-center justify-center p-6"
+          onClick={() => setPreviewPhotoId(null)}
+        >
+          <button
+            onClick={() => setPreviewPhotoId(null)}
+            className="absolute top-5 right-5 text-white/70 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <AuthedImage
+            src={`/api/photos/${previewPhotoId}`}
+            alt="Clinical photo"
+            className="max-w-full max-h-full rounded-xl object-contain"
+          />
+        </div>
+      )}
     </>
   );
 };

@@ -15,6 +15,7 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
 const MAX_AUDIT_ENTRIES = 1000;
+const MAX_PHOTO_BYTES = 6 * 1024 * 1024; // 6MB raw per photo
 
 // Default lists
 const DEFAULT_SURGEONS = ["Dr. A", "Dr. B"];
@@ -53,6 +54,7 @@ interface Database {
   followup: any[];
   checks: any[];
   appointments: any[];
+  photos: any[];
   lists: any;
   config: any;
   user: string;
@@ -61,7 +63,7 @@ interface Database {
 }
 
 const INITIAL_DB: Database = {
-  operations: [], drains: [], complications: [], followup: [], checks: [], appointments: [],
+  operations: [], drains: [], complications: [], followup: [], checks: [], appointments: [], photos: [],
   lists: {
     surgeons: DEFAULT_SURGEONS, procedures: DEFAULT_PROCEDURES, checklistItems: DEFAULT_CHECKLIST,
     complications: DEFAULT_COMPLICATIONS, fuStatus: FU_STATUS, outcomes: OUTCOMES, apptTypes: APPT_TYPES, apptStatus: APPT_STATUS
@@ -119,12 +121,16 @@ function hashKey(salt: string, key: string): string {
   return createHmac("sha256", salt).update(key).digest("hex");
 }
 
-// Returns { ok, primary } for a provided key against the env master key and stored keys.
-function checkKey(db: Database, key: string): { ok: boolean; primary: boolean; label?: string } {
+function normalizeRole(role: any): "full" | "readonly" {
+  return role === "readonly" ? "readonly" : "full";
+}
+
+// Returns match info for a provided key against the env master key and stored keys.
+function checkKey(db: Database, key: string): { ok: boolean; primary: boolean; label?: string; keyId?: string; role?: "full" | "readonly" } {
   if (constantTimeEqual(key, MASTER_KEY)) return { ok: true, primary: true, label: "Primary" };
   for (const k of db.masterKeys || []) {
     if (k && k.salt && k.hash && constantTimeEqual(k.hash, hashKey(k.salt, key))) {
-      return { ok: true, primary: false, label: k.label };
+      return { ok: true, primary: false, label: k.label, keyId: k.id, role: normalizeRole(k.role) };
     }
   }
   return { ok: false, primary: false };
@@ -146,6 +152,25 @@ function recordLoginFail(ip: string) {
   loginAttempts.set(ip, rec);
 }
 
+// In-memory cache of valid secondary keys (id -> role), so per-request auth
+// doesn't need a full DB read every time, while still catching a revoked key
+// within a few seconds instead of waiting out the token's 30-day expiry.
+// Invalidated immediately whenever a key is added/removed/edited.
+let keyCache: { byId: Map<string, "full" | "readonly">; loadedAt: number } | null = null;
+const KEY_CACHE_TTL_MS = 5000;
+
+async function getKeyCache(): Promise<Map<string, "full" | "readonly">> {
+  if (keyCache && Date.now() - keyCache.loadedAt < KEY_CACHE_TTL_MS) return keyCache.byId;
+  const db = await readDB();
+  const byId = new Map<string, "full" | "readonly">();
+  (db.masterKeys || []).forEach((k: any) => byId.set(k.id, normalizeRole(k.role)));
+  keyCache = { byId, loadedAt: Date.now() };
+  return byId;
+}
+function invalidateKeyCache() {
+  keyCache = null;
+}
+
 // --- DB read/write -------------------------------------------------------
 async function readDB(): Promise<Database> {
   let db: Database;
@@ -160,7 +185,7 @@ async function readDB(): Promise<Database> {
 
   if (!db.lists) db.lists = JSON.parse(JSON.stringify(INITIAL_DB.lists));
   if (!db.config) db.config = { ...INITIAL_DB.config };
-  for (const key of ["operations", "complications", "followup", "appointments", "drains", "checks", "audit", "masterKeys"] as const) {
+  for (const key of ["operations", "complications", "followup", "appointments", "drains", "checks", "audit", "masterKeys", "photos"] as const) {
     if (!Array.isArray((db as any)[key])) (db as any)[key] = [];
   }
   if (!db.user) db.user = INITIAL_DB.user;
@@ -176,7 +201,12 @@ async function readDB(): Promise<Database> {
     });
   };
   clean(db.operations); clean(db.complications); clean(db.followup);
-  clean(db.appointments); clean(db.drains); clean(db.checks);
+  clean(db.appointments); clean(db.drains); clean(db.checks); clean(db.photos);
+
+  // Backfill role on legacy access keys (pre-role rows default to full access).
+  (db.masterKeys || []).forEach((k: any) => {
+    if (k && !k.role) k.role = "full";
+  });
 
   // Migrate operations: single Procedure/Surgeon strings -> arrays + derived joined strings.
   db.operations.forEach((o) => {
@@ -200,7 +230,7 @@ async function readDB(): Promise<Database> {
       if (op) r.PatientID = op.PatientID;
     }
   });
-  migrate(db.drains); migrate(db.followup); migrate(db.checks); migrate(db.complications);
+  migrate(db.drains); migrate(db.followup); migrate(db.checks); migrate(db.complications); migrate(db.photos);
 
   // Sync default catalog additions.
   if (!Array.isArray(db.lists.procedures)) db.lists.procedures = [...DEFAULT_PROCEDURES];
@@ -224,9 +254,15 @@ function writeDB(db: Database): Promise<void> {
   return attempt;
 }
 
-function logAudit(db: Database, action: string, details: string) {
+// Who is acting on this request, for attribution (audit log, CreatedBy, etc).
+// Falls back to the practice display email only if somehow no session exists.
+function actorOf(req: express.Request, db: Database): string {
+  return (req as any).session?.sub || db.user || INITIAL_DB.user;
+}
+
+function logAudit(db: Database, who: string, action: string, details: string) {
   if (!Array.isArray(db.audit)) db.audit = [];
-  db.audit.push({ id: newId(), Timestamp: new Date().toISOString(), User: db.user || INITIAL_DB.user, Action: action, Details: details });
+  db.audit.push({ id: newId(), Timestamp: new Date().toISOString(), User: who, Action: action, Details: details });
   if (db.audit.length > MAX_AUDIT_ENTRIES) db.audit = db.audit.slice(db.audit.length - MAX_AUDIT_ENTRIES);
 }
 
@@ -244,13 +280,17 @@ function makeComplication(comp: any, operationId: string, patientId: string) {
   };
 }
 
-// Public db payload: strip secret master keys.
+// Public db payload: strip secret master keys (hash/salt), keep id/label/role/createdAt via /api/keys instead.
 function publicDB(db: Database) {
   const { masterKeys, ...rest } = db;
   return rest;
 }
 
-app.use(express.json({ limit: "10mb" }));
+function photosDir(): string {
+  return path.join(path.dirname(DB_FILE), "photos");
+}
+
+app.use(express.json({ limit: "12mb" }));
 
 // --- Auth routes & guard -------------------------------------------------
 app.post("/api/login", async (req, res) => {
@@ -267,8 +307,13 @@ app.post("/api/login", async (req, res) => {
     recordLoginFail(ip);
     return res.status(401).json({ error: "Invalid master key." });
   }
-  const token = signToken({ sub: result.label || "user", primary: result.primary, iat: Date.now(), exp: Date.now() + SESSION_TTL_MS });
-  res.json({ token, primary: result.primary, label: result.label });
+  const payload: Record<string, any> = { sub: result.label || "user", primary: result.primary, iat: Date.now(), exp: Date.now() + SESSION_TTL_MS };
+  if (!result.primary) {
+    payload.keyId = result.keyId;
+    payload.role = result.role;
+  }
+  const token = signToken(payload);
+  res.json({ token, primary: result.primary, label: result.label, role: result.primary ? "full" : result.role });
 });
 
 // Cron backup authenticates via CRON_SECRET.
@@ -286,19 +331,35 @@ app.post("/api/cron/backup", async (req, res) => {
   }
 });
 
-// Session guard for everything else under /api.
-app.use("/api", (req, res, next) => {
+// Session guard for everything else under /api: verifies the token, then for
+// secondary (non-primary) sessions confirms the specific key hasn't been
+// revoked and enforces the read-only role (blocks non-GET methods).
+app.use("/api", async (req, res, next) => {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   const payload = verifyToken(token);
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
+
+  if (payload.primary) {
+    payload.role = "full";
+  } else {
+    const cache = await getKeyCache();
+    const liveRole = payload.keyId ? cache.get(payload.keyId) : undefined;
+    if (!liveRole) return res.status(401).json({ error: "This access key has been revoked." });
+    payload.role = liveRole; // always trust the live role, not the token's stale copy
+  }
+
+  if (payload.role === "readonly" && req.method !== "GET") {
+    return res.status(403).json({ error: "This access key is read-only." });
+  }
+
   (req as any).session = payload;
   next();
 });
 
 app.get("/api/me", (req, res) => {
   const s = (req as any).session || {};
-  res.json({ ok: true, user: INITIAL_DB.user, primary: !!s.primary, label: s.sub });
+  res.json({ ok: true, user: INITIAL_DB.user, primary: !!s.primary, label: s.sub, role: s.role || "full" });
 });
 
 // --- Master key management (primary session only) ------------------------
@@ -310,15 +371,19 @@ function requirePrimary(req: express.Request, res: express.Response): boolean {
   return true;
 }
 
+function publicKeys(db: Database) {
+  return (db.masterKeys || []).map((k) => ({ id: k.id, label: k.label, role: normalizeRole(k.role), createdAt: k.createdAt }));
+}
+
 app.get("/api/keys", async (req, res) => {
   if (!requirePrimary(req, res)) return;
   const db = await readDB();
-  res.json({ keys: (db.masterKeys || []).map((k) => ({ id: k.id, label: k.label, createdAt: k.createdAt })) });
+  res.json({ keys: publicKeys(db) });
 });
 
 app.post("/api/keys", async (req, res) => {
   if (!requirePrimary(req, res)) return;
-  const { label, key } = req.body || {};
+  const { label, key, role } = req.body || {};
   if (!key || String(key).length < 4) return res.status(400).json({ error: "Key must be at least 4 characters." });
   const db = await readDB();
   if (constantTimeEqual(key, MASTER_KEY) || checkKey(db, key).ok) {
@@ -326,10 +391,27 @@ app.post("/api/keys", async (req, res) => {
   }
   const salt = randomBytes(16).toString("hex");
   db.masterKeys = db.masterKeys || [];
-  db.masterKeys.push({ id: newId(), label: (label || "Account").toString().slice(0, 40), salt, hash: hashKey(salt, key), createdAt: new Date().toISOString() });
-  logAudit(db, "Add Access Key", `Added master key '${label || "Account"}'`);
+  db.masterKeys.push({
+    id: newId(), label: (label || "Account").toString().slice(0, 40), salt, hash: hashKey(salt, key),
+    role: normalizeRole(role), createdAt: new Date().toISOString()
+  });
+  logAudit(db, actorOf(req, db), "Add Access Key", `Added ${normalizeRole(role)} access key '${label || "Account"}'`);
   await writeDB(db);
-  res.json({ keys: db.masterKeys.map((k) => ({ id: k.id, label: k.label, createdAt: k.createdAt })) });
+  invalidateKeyCache();
+  res.json({ keys: publicKeys(db) });
+});
+
+app.patch("/api/keys/:id", async (req, res) => {
+  if (!requirePrimary(req, res)) return;
+  const db = await readDB();
+  const target = (db.masterKeys || []).find((k) => k.id === req.params.id);
+  if (!target) return res.status(404).json({ error: "Key not found." });
+  if (req.body?.role !== undefined) target.role = normalizeRole(req.body.role);
+  if (req.body?.label !== undefined) target.label = String(req.body.label).slice(0, 40);
+  logAudit(db, actorOf(req, db), "Update Access Key", `Updated key '${target.label}' (role: ${target.role})`);
+  await writeDB(db);
+  invalidateKeyCache();
+  res.json({ keys: publicKeys(db) });
 });
 
 app.delete("/api/keys/:id", async (req, res) => {
@@ -337,9 +419,10 @@ app.delete("/api/keys/:id", async (req, res) => {
   const db = await readDB();
   const target = (db.masterKeys || []).find((k) => k.id === req.params.id);
   db.masterKeys = (db.masterKeys || []).filter((k) => k.id !== req.params.id);
-  logAudit(db, "Remove Access Key", `Removed master key '${target ? target.label : "unknown"}'`);
+  logAudit(db, actorOf(req, db), "Remove Access Key", `Removed access key '${target ? target.label : "unknown"}'`);
   await writeDB(db);
-  res.json({ keys: db.masterKeys.map((k) => ({ id: k.id, label: k.label, createdAt: k.createdAt })) });
+  invalidateKeyCache();
+  res.json({ keys: publicKeys(db) });
 });
 
 // --- Data routes ---------------------------------------------------------
@@ -357,6 +440,7 @@ app.post("/api/operations", async (req, res) => {
     const op = req.body;
     const db = await readDB();
     if (!op.PatientID) return res.status(400).json({ error: "Patient ID is required." });
+    const who = actorOf(req, db);
 
     const procedures = toList(op.Procedures, op.Procedure);
     const surgeons = toList(op.Surgeons, op.Surgeon);
@@ -365,7 +449,7 @@ app.post("/api/operations", async (req, res) => {
     const newOp = {
       id: opId, PatientID: op.PatientID, Age: op.Age ?? "", OperationDate: op.OperationDate || "",
       Procedures: procedures, Surgeons: surgeons, Procedure: procedures.join(", "), Surgeon: surgeons.join(", "),
-      DrainPlaced: op.DrainPlaced ? "Yes" : "No", Notes: op.Notes || "", CreatedAt: new Date().toISOString(), CreatedBy: db.user
+      DrainPlaced: op.DrainPlaced ? "Yes" : "No", Notes: op.Notes || "", CreatedAt: new Date().toISOString(), CreatedBy: who
     };
     db.operations.push(newOp);
 
@@ -382,7 +466,7 @@ app.post("/api/operations", async (req, res) => {
       });
     }
 
-    logAudit(db, "Create Operation", `Added case for ${op.PatientID} (${newOp.Procedure || "—"} by ${newOp.Surgeon || "—"})${inlineComps ? ` + ${inlineComps} complication(s)` : ""}`);
+    logAudit(db, who, "Create Operation", `Added case for ${op.PatientID} (${newOp.Procedure || "—"} by ${newOp.Surgeon || "—"})${inlineComps ? ` + ${inlineComps} complication(s)` : ""}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -395,6 +479,7 @@ app.put("/api/operations", async (req, res) => {
     const op = req.body;
     const db = await readDB();
     if (!op.PatientID) return res.status(400).json({ error: "Patient ID is required." });
+    const who = actorOf(req, db);
 
     const index = db.operations.findIndex((o) => o.id === op.id);
     if (index === -1) return res.status(404).json({ error: "This case no longer exists — refresh and try again." });
@@ -413,7 +498,7 @@ app.put("/api/operations", async (req, res) => {
     // Keep denormalized PatientID in sync on this case's ancillary rows + patient-level appointments.
     if (String(op.PatientID).toLowerCase() !== String(oldPatientID).toLowerCase()) {
       const newPid = op.PatientID;
-      [db.drains, db.complications, db.followup, db.checks].forEach((rows) =>
+      [db.drains, db.complications, db.followup, db.checks, db.photos].forEach((rows) =>
         rows.forEach((r) => { if (r.OperationID === op.id) r.PatientID = newPid; })
       );
       db.appointments.forEach((a) => { if (a.PatientID === oldPatientID) a.PatientID = newPid; });
@@ -421,7 +506,7 @@ app.put("/api/operations", async (req, res) => {
 
     if (!op.DrainPlaced) db.drains = db.drains.filter((d) => d.OperationID !== op.id);
 
-    logAudit(db, "Update Operation", `Updated case for patient ID ${op.PatientID}`);
+    logAudit(db, who, "Update Operation", `Updated case for patient ID ${op.PatientID}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -429,27 +514,37 @@ app.put("/api/operations", async (req, res) => {
   }
 });
 
-// Delete one case by id and its case-level ancillary data.
+// Delete one case by id and its case-level ancillary data (including photos on disk).
 app.delete("/api/operations/:id", async (req, res) => {
   try {
     const id = req.params.id;
     const db = await readDB();
+    const who = actorOf(req, db);
     const target = db.operations.find((o) => o.id === id);
     if (!target) return res.status(404).json({ error: "Case not found." });
     const pid = target.PatientID;
+
+    const photosToDelete = db.photos.filter((p) => p.OperationID === id);
 
     db.operations = db.operations.filter((o) => o.id !== id);
     db.drains = db.drains.filter((d) => d.OperationID !== id);
     db.complications = db.complications.filter((c) => c.OperationID !== id);
     db.followup = db.followup.filter((f) => f.OperationID !== id);
     db.checks = db.checks.filter((ch) => ch.OperationID !== id);
+    db.photos = db.photos.filter((p) => p.OperationID !== id);
 
     // Appointments are patient-level; only purge when the patient has no cases left.
     const patientHasOtherCases = db.operations.some((o) => o.PatientID === pid);
     if (!patientHasOtherCases) db.appointments = db.appointments.filter((a) => a.PatientID !== pid);
 
-    logAudit(db, "Delete Operation", `Deleted case ${id} for patient ID ${pid}`);
+    logAudit(db, who, "Delete Operation", `Deleted case ${id} for patient ID ${pid}`);
     await writeDB(db);
+
+    // Best-effort file cleanup after the DB write succeeds.
+    for (const p of photosToDelete) {
+      try { await fs.unlink(path.join(photosDir(), p.id)); } catch { /* already gone */ }
+    }
+
     res.json(publicDB(db));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -460,12 +555,13 @@ app.post("/api/drains/remove", async (req, res) => {
   try {
     const { OperationID } = req.body;
     const db = await readDB();
+    const who = actorOf(req, db);
     const op = db.operations.find((o) => o.id === OperationID);
     if (!op) return res.status(404).json({ error: "Case not found." });
     if (!db.drains.some((d) => d.OperationID === OperationID)) {
-      db.drains.push({ id: newId(), OperationID, PatientID: op.PatientID, RemovedDate: new Date().toISOString().split("T")[0], RemovedBy: db.user });
+      db.drains.push({ id: newId(), OperationID, PatientID: op.PatientID, RemovedDate: new Date().toISOString().split("T")[0], RemovedBy: who });
     }
-    logAudit(db, "Remove Drain", `Marked drain removed for case ${OperationID} (${op.PatientID})`);
+    logAudit(db, who, "Remove Drain", `Marked drain removed for case ${OperationID} (${op.PatientID})`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -477,8 +573,9 @@ app.post("/api/drains/undo", async (req, res) => {
   try {
     const { OperationID } = req.body;
     const db = await readDB();
+    const who = actorOf(req, db);
     db.drains = db.drains.filter((d) => d.OperationID !== OperationID);
-    logAudit(db, "Undo Drain Removal", `Undid drain removal for case ${OperationID}`);
+    logAudit(db, who, "Undo Drain Removal", `Undid drain removal for case ${OperationID}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -490,11 +587,12 @@ app.post("/api/complications", async (req, res) => {
   try {
     const comp = req.body;
     const db = await readDB();
+    const who = actorOf(req, db);
     const op = db.operations.find((o) => o.id === comp.OperationID);
     if (!op) return res.status(400).json({ error: "A valid case is required for the complication." });
     const newComp = makeComplication(comp, op.id, op.PatientID);
     db.complications.push(newComp);
-    logAudit(db, "Add Complication", `Logged '${newComp.Complication}' (Clavien ${newComp.Grade}) for ${op.PatientID}`);
+    logAudit(db, who, "Add Complication", `Logged '${newComp.Complication}' (Clavien ${newComp.Grade}) for ${op.PatientID}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -506,6 +604,7 @@ app.put("/api/complications", async (req, res) => {
   try {
     const comp = req.body;
     const db = await readDB();
+    const who = actorOf(req, db);
     const index = db.complications.findIndex((c) => c.id === comp.id);
     if (index === -1) return res.status(404).json({ error: "This complication no longer exists — refresh and try again." });
     const existing = db.complications[index];
@@ -515,7 +614,7 @@ app.put("/api/complications", async (req, res) => {
       Management: comp.Management || "", Resolved: comp.Resolved ? "Yes" : "No",
       ResolvedDate: comp.Resolved ? (wasResolved ? existing.ResolvedDate : new Date().toISOString().split("T")[0]) : ""
     };
-    logAudit(db, "Update Complication", `Updated complication for ${db.complications[index].PatientID}`);
+    logAudit(db, who, "Update Complication", `Updated complication for ${db.complications[index].PatientID}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -527,9 +626,10 @@ app.delete("/api/complications/:id", async (req, res) => {
   try {
     const id = req.params.id;
     const db = await readDB();
+    const who = actorOf(req, db);
     const target = db.complications.find((c) => c.id === id);
     db.complications = db.complications.filter((c) => c.id !== id);
-    logAudit(db, "Delete Complication", `Deleted complication for ${target ? target.PatientID : "Unknown"}`);
+    logAudit(db, who, "Delete Complication", `Deleted complication for ${target ? target.PatientID : "Unknown"}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -541,13 +641,14 @@ app.post("/api/complications/resolve/:id", async (req, res) => {
   try {
     const id = req.params.id;
     const db = await readDB();
+    const who = actorOf(req, db);
     const index = db.complications.findIndex((c) => c.id === id);
     if (index !== -1) {
       db.complications[index].Resolved = "Yes";
       db.complications[index].ResolvedDate = new Date().toISOString().split("T")[0];
     }
     const pId = index !== -1 ? db.complications[index].PatientID : "Unknown";
-    logAudit(db, "Resolve Complication", `Marked complication resolved for ${pId}`);
+    logAudit(db, who, "Resolve Complication", `Marked complication resolved for ${pId}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -561,6 +662,7 @@ app.post("/api/followup", async (req, res) => {
     const ALLOWED = ["M1", "M3", "M6", "M12", "FinalOutcome"];
     if (!ALLOWED.includes(field)) return res.status(400).json({ error: "Invalid follow-up field." });
     const db = await readDB();
+    const who = actorOf(req, db);
     const op = db.operations.find((o) => o.id === OperationID);
     if (!op) return res.status(400).json({ error: "A valid case is required." });
     let rec = db.followup.find((f) => f.OperationID === OperationID);
@@ -569,7 +671,7 @@ app.post("/api/followup", async (req, res) => {
       db.followup.push(rec);
     }
     rec[field] = value;
-    logAudit(db, "Update Follow-up", `Set ${field}='${value}' for ${op.PatientID}`);
+    logAudit(db, who, "Update Follow-up", `Set ${field}='${value}' for ${op.PatientID}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -581,12 +683,13 @@ app.post("/api/checks", async (req, res) => {
   try {
     const { OperationID, item, done } = req.body;
     const db = await readDB();
+    const who = actorOf(req, db);
     const op = db.operations.find((o) => o.id === OperationID);
     if (!op) return res.status(400).json({ error: "A valid case is required." });
     const index = db.checks.findIndex((c) => c.OperationID === OperationID && c.Item === item);
     if (done && index === -1) db.checks.push({ id: newId(), OperationID, PatientID: op.PatientID, Item: item, Done: "Yes" });
     else if (!done && index !== -1) db.checks.splice(index, 1);
-    logAudit(db, done ? "Check Item Done" : "Check Item Undo", `${done ? "Checked" : "Unchecked"} '${item}' for ${op.PatientID}`);
+    logAudit(db, who, done ? "Check Item Done" : "Check Item Undo", `${done ? "Checked" : "Unchecked"} '${item}' for ${op.PatientID}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -598,13 +701,14 @@ app.post("/api/appointments", async (req, res) => {
   try {
     const appt = req.body;
     const db = await readDB();
+    const who = actorOf(req, db);
     if (!appt.PatientID) return res.status(400).json({ error: "Patient ID / Name is required." });
     if (!appt.Date) return res.status(400).json({ error: "Date is required." });
     db.appointments.push({
       id: newId(), PatientID: appt.PatientID, Date: appt.Date, Time: appt.Time || "", Type: appt.Type || "Other",
-      Notes: appt.Notes || "", Status: "Scheduled", CreatedBy: db.user
+      Notes: appt.Notes || "", Status: "Scheduled", CreatedBy: who
     });
-    logAudit(db, "Create Appointment", `Scheduled ${appt.Type} on ${appt.Date} for ${appt.PatientID}`);
+    logAudit(db, who, "Create Appointment", `Scheduled ${appt.Type} on ${appt.Date} for ${appt.PatientID}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -616,10 +720,11 @@ app.post("/api/appointments/status", async (req, res) => {
   try {
     const { id, status } = req.body;
     const db = await readDB();
+    const who = actorOf(req, db);
     const appt = db.appointments.find((a) => a.id === id);
     if (appt) {
       appt.Status = status;
-      logAudit(db, "Update Appointment Status", `Set status '${status}' for ${appt.PatientID}`);
+      logAudit(db, who, "Update Appointment Status", `Set status '${status}' for ${appt.PatientID}`);
     }
     await writeDB(db);
     res.json(publicDB(db));
@@ -632,9 +737,10 @@ app.delete("/api/appointments/:id", async (req, res) => {
   try {
     const id = req.params.id;
     const db = await readDB();
+    const who = actorOf(req, db);
     const target = db.appointments.find((a) => a.id === id);
     db.appointments = db.appointments.filter((a) => a.id !== id);
-    logAudit(db, "Delete Appointment", `Deleted ${target ? target.Type : "appointment"} for ${target ? target.PatientID : "Unknown"}`);
+    logAudit(db, who, "Delete Appointment", `Deleted ${target ? target.Type : "appointment"} for ${target ? target.PatientID : "Unknown"}`);
     await writeDB(db);
     res.json(publicDB(db));
   } catch (err: any) {
@@ -701,8 +807,119 @@ app.post("/api/backup/upload", async (req, res) => {
     // Preserve existing master keys unless the backup explicitly carries them.
     const merged = { ...INITIAL_DB, ...newDb, masterKeys: Array.isArray(newDb.masterKeys) ? newDb.masterKeys : current.masterKeys };
     await writeDB(merged as Database);
+    invalidateKeyCache();
     const updatedDb = await readDB();
     res.json(publicDB(updatedDb));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- CSV / Excel-compatible export ----------------------------------------
+function csvEscape(v: any): string {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+app.get("/api/export/csv", async (req, res) => {
+  try {
+    const db = await readDB();
+    const header = [
+      "Patient ID", "Age", "Operation Date", "Procedures", "Surgeons", "Drain Placed", "Drain Removed Date",
+      "Complications", "Open Complications", "Checklist Progress", "Follow-up Outcome", "Notes", "Created By", "Created At"
+    ];
+    const checklistTotal = db.lists.checklistItems.length;
+    const rows = db.operations.map((o) => {
+      const drain = db.drains.find((d) => d.OperationID === o.id);
+      const comps = db.complications.filter((c) => c.OperationID === o.id);
+      const openComps = comps.filter((c) => c.Resolved !== "Yes").length;
+      const fu = db.followup.find((f) => f.OperationID === o.id);
+      const checklistDone = db.checks.filter((c) => c.OperationID === o.id && c.Done === "Yes").length;
+      return [
+        o.PatientID, o.Age, o.OperationDate, o.Procedure, o.Surgeon,
+        o.DrainPlaced, drain ? drain.RemovedDate : "",
+        comps.map((c) => c.Complication).join("; "), openComps,
+        `${checklistDone}/${checklistTotal}`,
+        fu ? fu.FinalOutcome : "Ongoing",
+        o.Notes || "", o.CreatedBy || "", o.CreatedAt || ""
+      ].map(csvEscape).join(",");
+    });
+    const csv = [header.map(csvEscape).join(","), ...rows].join("\r\n");
+    const stamp = new Date().toISOString().split("T")[0];
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="surgical_cases_export_${stamp}.csv"`);
+    // UTF-8 BOM so Excel correctly detects encoding (important for Arabic text).
+    res.send("﻿" + csv);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Photos ---------------------------------------------------------------
+app.post("/api/photos", async (req, res) => {
+  try {
+    const { OperationID, filename, mimeType, dataBase64 } = req.body || {};
+    if (!OperationID || !dataBase64) return res.status(400).json({ error: "A case and image data are required." });
+    if (!mimeType || !String(mimeType).startsWith("image/")) return res.status(400).json({ error: "Only image files are supported." });
+
+    const db = await readDB();
+    const who = actorOf(req, db);
+    const op = db.operations.find((o) => o.id === OperationID);
+    if (!op) return res.status(400).json({ error: "A valid case is required." });
+
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(dataBase64, "base64");
+    } catch {
+      return res.status(400).json({ error: "Invalid image data." });
+    }
+    if (buffer.length === 0) return res.status(400).json({ error: "Invalid image data." });
+    if (buffer.length > MAX_PHOTO_BYTES) return res.status(400).json({ error: "Image must be under 6MB." });
+
+    const id = newId();
+    await fs.mkdir(photosDir(), { recursive: true });
+    await fs.writeFile(path.join(photosDir(), id), buffer);
+
+    const meta = {
+      id, OperationID, PatientID: op.PatientID,
+      filename: (filename || "photo").toString().slice(0, 120),
+      mimeType, size: buffer.length, uploadedAt: new Date().toISOString(), uploadedBy: who
+    };
+    db.photos.push(meta);
+    logAudit(db, who, "Upload Photo", `Uploaded photo '${meta.filename}' for ${op.PatientID}`);
+    await writeDB(db);
+    res.json(publicDB(db));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/photos/:id", async (req, res) => {
+  try {
+    const db = await readDB();
+    const meta = db.photos.find((p) => p.id === req.params.id);
+    if (!meta) return res.status(404).json({ error: "Photo not found." });
+    const buf = await fs.readFile(path.join(photosDir(), meta.id));
+    res.setHeader("Content-Type", meta.mimeType);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.send(buf);
+  } catch (err: any) {
+    res.status(404).json({ error: "Photo not found." });
+  }
+});
+
+app.delete("/api/photos/:id", async (req, res) => {
+  try {
+    const db = await readDB();
+    const who = actorOf(req, db);
+    const meta = db.photos.find((p) => p.id === req.params.id);
+    db.photos = db.photos.filter((p) => p.id !== req.params.id);
+    logAudit(db, who, "Delete Photo", meta ? `Deleted photo '${meta.filename}' for ${meta.PatientID}` : "Deleted photo");
+    await writeDB(db);
+    if (meta) {
+      try { await fs.unlink(path.join(photosDir(), meta.id)); } catch { /* already gone */ }
+    }
+    res.json(publicDB(db));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

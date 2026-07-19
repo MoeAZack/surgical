@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { DBState } from "../types";
 import { apiFetch } from "../api";
 import { AccessKeysPanel } from "./AccessKeysPanel";
-import { Sliders, Link as LinkIcon, Users, Clipboard, AlertTriangle, ListChecks, Download, Upload, Palette, Building2, Rows3, CloudCheck } from "lucide-react";
+import { Sliders, Link as LinkIcon, Users, Clipboard, AlertTriangle, ListChecks, Download, Upload, Palette, Building2, Rows3, CloudCheck, FileSpreadsheet } from "lucide-react";
 
 interface SettingsPanelProps {
   db: DBState;
@@ -110,25 +110,28 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }
   };
 
-  // Authenticated backup download (the endpoint now requires a session token,
-  // so a plain <a href> won't work — fetch as a blob and save it).
-  const handleDownloadBackup = async () => {
+  // Authenticated file download (endpoints require a session token, so a
+  // plain <a href> won't work — fetch as a blob and save it).
+  const downloadAuthed = async (path: string, filename: string, failureLabel: string) => {
     try {
-      const res = await apiFetch("/api/backup/download");
+      const res = await apiFetch(path);
       if (!res.ok) throw new Error("Download failed.");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "surgical_case_tracker_backup.json";
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err: any) {
-      window.dispatchEvent(new CustomEvent("clinical_toast", { detail: { message: "Backup download failed: " + err.message, isError: true } }));
+      window.dispatchEvent(new CustomEvent("clinical_toast", { detail: { message: `${failureLabel}: ${err.message}`, isError: true } }));
     }
   };
+
+  const handleDownloadBackup = () => downloadAuthed("/api/backup/download", "surgical_case_tracker_backup.json", "Backup download failed");
+  const handleExportCsv = () => downloadAuthed("/api/export/csv", `surgical_cases_export_${new Date().toISOString().split("T")[0]}.csv`, "Export failed");
 
   // Handle change of an item in list (persisted on blur via persistOnBlur below).
   const changeLocalItem = (index: number, val: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
@@ -382,6 +385,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 disabled={uploadingBackup}
               />
             </label>
+
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="w-full sm:col-span-2 border border-white/10 hover:border-brand-primary/30 bg-white/5 hover:bg-white/10 text-white py-2 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4 shrink-0 text-brand-primary" />
+              Export Cases as CSV (Excel-compatible)
+            </button>
           </div>
         </div>
 

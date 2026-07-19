@@ -57,11 +57,11 @@ export const OperationsLog: React.FC<OperationsLogProps> = ({
 
     if (!matchesSearch) return false;
 
-    // Surgeon filter
-    if (surgeonFilter && o.Surgeon !== surgeonFilter) return false;
+    // Surgeon filter — a case can have multiple surgeons, so match against the array.
+    if (surgeonFilter && !o.Surgeons.includes(surgeonFilter)) return false;
 
-    // Procedure filter
-    if (procedureFilter && o.Procedure !== procedureFilter) return false;
+    // Procedure filter — a case can have multiple procedures, so match against the array.
+    if (procedureFilter && !o.Procedures.includes(procedureFilter)) return false;
 
     // Outcome filter
     if (outcomeFilter) {

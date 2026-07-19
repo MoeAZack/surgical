@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Mic, MicOff } from "lucide-react";
 
 interface VoiceInputButtonProps {
@@ -14,6 +14,7 @@ export const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [supported, setSupported] = useState(true);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     const SpeechRecognition =
@@ -21,6 +22,10 @@ export const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
     if (!SpeechRecognition) {
       setSupported(false);
     }
+    // Abort any in-flight recognition if the component unmounts mid-listen.
+    return () => {
+      recognitionRef.current?.abort();
+    };
   }, []);
 
   const toggleListening = () => {
@@ -32,7 +37,8 @@ export const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (isListening) {
-      setIsListening(false);
+      // Actually stop the in-flight recognition instead of just flipping UI state.
+      recognitionRef.current?.stop();
       return;
     }
 
@@ -60,8 +66,10 @@ export const VoiceInputButton: React.FC<VoiceInputButtonProps> = ({
 
       recognition.onend = () => {
         setIsListening(false);
+        recognitionRef.current = null;
       };
 
+      recognitionRef.current = recognition;
       recognition.start();
     } catch (err) {
       console.error("Failed to start speech recognition:", err);
