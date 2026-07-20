@@ -84,6 +84,13 @@ export interface Photo {
   size: number;
   uploadedAt: string;
   uploadedBy: string;
+  uploadedByPatient?: boolean;
+}
+
+export interface PatientKeyInfo {
+  id: string;
+  OperationID: string;
+  createdAt: string;
 }
 
 export interface ListConfig {
@@ -119,5 +126,16 @@ export interface DBState {
   config: AppConfig;
   user: string;
   audit?: AuditEntry[];
+  patientKeys?: PatientKeyInfo[];
+}
+
+/** Minimal shape returned to a patient session by GET /api/patient/case,
+ *  POST /api/photos, and DELETE /api/photos/:id — deliberately excludes any
+ *  clinical detail (procedure, dates, complications, other patients, etc). */
+export interface PatientPortalPhoto {
+  id: string;
+  filename: string;
+  mimeType: string;
+  uploadedAt: string;
 }
 

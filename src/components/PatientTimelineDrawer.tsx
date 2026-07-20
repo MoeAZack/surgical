@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { DBState } from "../types";
 import { fmt, daysInSitu, addMonths, isFollowUpLate } from "../utils";
-import { X, Pencil, CheckCircle2, Calendar, Droplet, AlertCircle, Bookmark, PlusCircle, Camera, ImagePlus, Trash2 } from "lucide-react";
+import { X, Pencil, CheckCircle2, Calendar, Droplet, AlertCircle, Bookmark, PlusCircle, Camera, ImagePlus, Trash2, KeyRound, RefreshCw, Ban, Copy, Send } from "lucide-react";
 import { translations } from "../translations";
 import { AuthedImage } from "./AuthedImage";
 
@@ -23,6 +23,8 @@ interface PatientTimelineDrawerProps {
   }) => Promise<void>;
   onUploadPhoto: (payload: { OperationID: string; filename: string; mimeType: string; dataBase64: string }) => Promise<void>;
   onDeletePhoto: (id: string) => Promise<void>;
+  onIssuePatientKey: (operationId: string) => Promise<void>;
+  onRevokePatientKey: (operationId: string) => Promise<void>;
   readOnly?: boolean;
 }
 
@@ -36,6 +38,8 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
   onAddComplication,
   onUploadPhoto,
   onDeletePhoto,
+  onIssuePatientKey,
+  onRevokePatientKey,
   readOnly = false
 }) => {
   const [showAddComp, setShowAddComp] = useState(false);
@@ -46,6 +50,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
   const [submittingComp, setSubmittingComp] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [previewPhotoId, setPreviewPhotoId] = useState<string | null>(null);
+  const [keyBusy, setKeyBusy] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const t = translations[lang];
@@ -73,6 +78,7 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
 
   const cs = db.complications.filter((c) => c.OperationID === o.id);
   const photos = db.photos.filter((p) => p.OperationID === o.id);
+  const patientKey = (db.patientKeys || []).find((k) => k.OperationID === o.id);
 
   const f = db.followup.find((fu) => fu.OperationID === o.id) || {
     M1: "—",
@@ -116,6 +122,28 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
     };
     reader.onerror = () => setUploadingPhoto(false);
     reader.readAsDataURL(file);
+  };
+
+  const handleIssueKey = async () => {
+    setKeyBusy(true);
+    try {
+      await onIssuePatientKey(o.id);
+    } catch {
+      // toast already fired by the parent handler
+    } finally {
+      setKeyBusy(false);
+    }
+  };
+
+  const handleRevokeKey = async () => {
+    setKeyBusy(true);
+    try {
+      await onRevokePatientKey(o.id);
+    } catch {
+      // toast already fired by the parent handler
+    } finally {
+      setKeyBusy(false);
+    }
   };
 
   const handleLogComplication = async (e: React.FormEvent) => {
@@ -316,6 +344,14 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                         className="w-full h-full object-cover cursor-pointer"
                         onClick={() => setPreviewPhotoId(p.id)}
                       />
+                      {p.uploadedByPatient && (
+                        <span
+                          title={isRTL ? "رفعتها المريضة" : "Uploaded by patient"}
+                          className="absolute bottom-1 left-1 bg-brand-primary/90 text-slate-950 text-[8px] font-bold uppercase tracking-wide py-0.5 px-1.5 rounded-md shadow"
+                        >
+                          {isRTL ? "مريضة" : "Patient"}
+                        </span>
+                      )}
                       {!readOnly && (
                         <button
                           onClick={() => onDeletePhoto(p.id)}
@@ -332,6 +368,60 @@ export const PatientTimelineDrawer: React.FC<PatientTimelineDrawerProps> = ({
                 <p className="text-white/40 italic text-xs">{isRTL ? "لا توجد صور مرفوعة." : "No photos uploaded yet."}</p>
               )}
             </div>
+
+            {/* Patient Access */}
+            {!readOnly && (
+              <div className="pt-5">
+                <h4 className={`font-display font-bold text-[10.5px] uppercase tracking-wider text-white/40 mb-3 flex items-center gap-1.5 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <KeyRound className="w-3.5 h-3.5 text-brand-primary" /> {isRTL ? "وصول المريضة" : "Patient Access"}
+                </h4>
+                {patientKey ? (
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                    <div className={`flex items-center justify-between ${isRTL ? "flex-row-reverse" : "flex-row"}`}>
+                      <div className={isRTL ? "text-right" : "text-left"}>
+                        <span className="font-semibold text-white text-xs block">
+                          {isRTL ? "مفعّل" : "Active"}
+                        </span>
+                        <span className="text-white/40 text-[10px] mt-0.5 inline-block">
+                          {isRTL ? "صدر في" : "Issued"} {fmt(patientKey.createdAt)}
+                        </span>
+                      </div>
+                      <span className="w-2 h-2 rounded-full bg-brand-primary shadow shadow-brand-primary/50" />
+                    </div>
+                    <p className="text-[10.5px] text-white/50 mt-2 leading-relaxed">
+                      {isRTL
+                        ? "الرمز السابق لم يعد ظاهراً. أعيدي التوليد لعرض رمز جديد يمكن مشاركته."
+                        : "The original code is no longer shown. Regenerate to reveal a new one you can share."}
+                    </p>
+                    <div className={`flex gap-1.5 mt-3 ${isRTL ? "flex-row-reverse" : "flex-row"}`}>
+                      <button
+                        onClick={handleIssueKey}
+                        disabled={keyBusy}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 border border-white/10 rounded-lg text-[10.5px] font-semibold text-white/80 hover:text-white hover:bg-white/10 cursor-pointer transition-colors disabled:opacity-40"
+                      >
+                        <RefreshCw className="w-3 h-3" /> {isRTL ? "إعادة توليد" : "Regenerate"}
+                      </button>
+                      <button
+                        onClick={handleRevokeKey}
+                        disabled={keyBusy}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 border border-rose-500/20 bg-rose-950/20 rounded-lg text-[10.5px] font-semibold text-rose-300 hover:text-rose-200 hover:bg-rose-950/40 cursor-pointer transition-colors disabled:opacity-40"
+                      >
+                        <Ban className="w-3 h-3" /> {isRTL ? "إلغاء" : "Revoke"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleIssueKey}
+                    disabled={keyBusy}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-3 border border-brand-primary/20 bg-brand-primary/10 hover:bg-brand-primary/20 rounded-xl text-xs font-semibold text-brand-primary-light cursor-pointer transition-colors disabled:opacity-40"
+                  >
+                    <KeyRound className="w-4 h-4" />
+                    {keyBusy ? (isRTL ? "..." : "…") : isRTL ? "إصدار رمز وصول للمريضة" : "Issue Patient Access Code"}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Complications */}
             <div className="pt-5">

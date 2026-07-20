@@ -5,6 +5,7 @@ import { PatientTimelineDrawer } from "./components/PatientTimelineDrawer";
 import { EditOperationModal } from "./components/EditOperationModal";
 import { EditComplicationModal } from "./components/EditComplicationModal";
 import { LoginScreen } from "./components/LoginScreen";
+import { PatientPortal } from "./components/PatientPortal";
 import { translations } from "./translations";
 import { apiJson, jsonBody, OfflineError, AuthError, logout, getToken } from "./api";
 import { enqueue, outboxSize, flushOutbox } from "./outbox";
@@ -25,7 +26,11 @@ import {
   UploadCloud,
   LogOut,
   ScrollText,
-  Lock
+  Lock,
+  KeyRound,
+  Copy,
+  Send,
+  Check
 } from "lucide-react";
 
 // Code-split the heavy tab views so the initial bundle stays small.
@@ -71,6 +76,7 @@ export default function App() {
   const [authed, setAuthed] = useState<boolean>(false);
   const [isPrimary, setIsPrimary] = useState<boolean>(false);
   const [role, setRole] = useState<"full" | "readonly">("full");
+  const [sessionKind, setSessionKind] = useState<"staff" | "patient" | null>(null);
   const [activeTab, setActiveTab] = useState<string>("dash");
   const [loading, setLoading] = useState<boolean>(true);
   const [busy, setBusy] = useState<boolean>(false);
@@ -133,6 +139,8 @@ export default function App() {
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [editingOperation, setEditingOperation] = useState<Operation | null>(null);
   const [editingComplication, setEditingComplication] = useState<Complication | null>(null);
+  const [patientCodeReveal, setPatientCodeReveal] = useState<{ code: string; OperationID: string; createdAt: string } | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   // Calendar direct jump state from Dash upcoming cards
   const [jumpDate, setJumpDate] = useState<string | undefined>(undefined);
@@ -170,12 +178,19 @@ export default function App() {
   const loadData = async () => {
     setLoading(true);
     try {
+      const me = await apiJson("/api/me");
+      if (me.kind === "patient") {
+        // Patient sessions never fetch the full practice database — they get
+        // a separate, deliberately minimal endpoint (GET /api/patient/case)
+        // that PatientPortal calls itself.
+        setSessionKind("patient");
+        return;
+      }
+      setSessionKind("staff");
+      setIsPrimary(!!me.primary);
+      setRole(me.role === "readonly" ? "readonly" : "full");
       await refetch();
       void flushIfNeeded();
-      apiJson("/api/me").then((me) => {
-        setIsPrimary(!!me.primary);
-        setRole(me.role === "readonly" ? "readonly" : "full");
-      }).catch(() => {});
     } catch (err: any) {
       if (err instanceof AuthError) {
         setAuthed(false);
@@ -536,6 +551,29 @@ export default function App() {
     );
   };
 
+  const handleIssuePatientKey = async (operationId: string) => {
+    setBusy(true);
+    try {
+      const data = await apiJson(`/api/operations/${encodeURIComponent(operationId)}/patient-key`, { method: "POST" });
+      const { issuedPatientCode, ...dbState } = data;
+      setDb(dbState);
+      setPatientCodeReveal(issuedPatientCode);
+    } catch (err: any) {
+      if (err instanceof OfflineError) showToast("You're offline — reconnect to make this change.", true);
+      else showToast(err.message, true);
+      throw err;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRevokePatientKey = async (operationId: string) => {
+    await runMutation(
+      () => apiJson(`/api/operations/${encodeURIComponent(operationId)}/patient-key`, { method: "DELETE" }),
+      "Patient access revoked."
+    );
+  };
+
   const handleUploadBackup = async (backupData: any) => {
     await runMutation(
       () => apiJson("/api/backup/upload", { method: "POST", ...jsonBody(backupData) }),
@@ -623,7 +661,24 @@ export default function App() {
     return <LoginScreen themeColor={themeColor} onSuccess={() => setAuthed(true)} />;
   }
 
-  if (loading || !db) {
+  if (loading) {
+    return (
+      <div className={`fixed inset-0 bg-brand-bg flex flex-col justify-center items-center z-50 theme-${themeColor} transition-colors duration-300`}>
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="w-8 h-8 text-brand-primary animate-spin" />
+          <p className="text-sm font-semibold text-brand-primary-light font-display tracking-wide animate-pulse">
+            Loading…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionKind === "patient") {
+    return <PatientPortal themeColor={themeColor} />;
+  }
+
+  if (!db) {
     return (
       <div className={`fixed inset-0 bg-brand-bg flex flex-col justify-center items-center z-50 theme-${themeColor} transition-colors duration-300`}>
         <div className="flex flex-col items-center gap-4">
@@ -935,6 +990,8 @@ export default function App() {
         onAddComplication={handleAddComplication}
         onUploadPhoto={handleUploadPhoto}
         onDeletePhoto={handleDeletePhoto}
+        onIssuePatientKey={handleIssuePatientKey}
+        onRevokePatientKey={handleRevokePatientKey}
         readOnly={role === "readonly"}
       />
 
@@ -957,6 +1014,62 @@ export default function App() {
           onSave={handleUpdateComplication}
           onDelete={handleDeleteComplication}
         />
+      )}
+
+      {/* PATIENT ACCESS CODE REVEAL MODAL */}
+      {patientCodeReveal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-brand-bg/95 border border-white/20 p-6 rounded-2xl max-w-sm w-full shadow-2xl text-white text-center space-y-4 animate-fade-in">
+            <div className="w-12 h-12 bg-brand-primary/10 border border-brand-primary/30 text-brand-primary rounded-full flex items-center justify-center mx-auto">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-lg leading-snug">
+                {isRTL ? "رمز وصول المريضة" : "Patient Access Code"}
+              </h3>
+              <p className="text-xs text-white/60 mt-1.5 leading-relaxed">
+                {isRTL
+                  ? "شاركي هذا الرمز مع المريضة. لن يظهر مرة أخرى بعد إغلاق هذه النافذة."
+                  : "Share this code with the patient. It won't be shown again after you close this."}
+              </p>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-xl py-4 px-3">
+              <span className="font-mono font-bold text-2xl tracking-[0.15em] text-brand-primary-light select-all">
+                {patientCodeReveal.code}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(patientCodeReveal.code);
+                  setCodeCopied(true);
+                  setTimeout(() => setCodeCopied(false), 2000);
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 border border-white/10 rounded-xl text-xs font-semibold text-white/80 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+              >
+                {codeCopied ? <Check className="w-3.5 h-3.5 text-brand-primary" /> : <Copy className="w-3.5 h-3.5" />}
+                {codeCopied ? (isRTL ? "تم النسخ" : "Copied") : isRTL ? "نسخ" : "Copy"}
+              </button>
+              <button
+                onClick={() => {
+                  const msg = isRTL
+                    ? `رمز الدخول الخاص بك لرفع صور المتابعة: ${patientCodeReveal.code}`
+                    : `Your access code for uploading follow-up photos: ${patientCodeReveal.code}`;
+                  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-brand-primary hover:bg-brand-primary-hover rounded-xl text-xs font-bold text-white cursor-pointer border border-brand-primary/20 shadow transition-colors"
+              >
+                <Send className="w-3.5 h-3.5" /> WhatsApp
+              </button>
+            </div>
+            <button
+              onClick={() => setPatientCodeReveal(null)}
+              className="w-full py-2 px-3 text-xs font-semibold text-white/50 hover:text-white cursor-pointer transition-colors"
+            >
+              {isRTL ? "تم" : "Done"}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* CHAINED WORKFLOW DIALOG MODAL */}

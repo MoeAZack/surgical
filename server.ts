@@ -60,6 +60,7 @@ interface Database {
   user: string;
   audit?: any[];
   masterKeys?: any[];
+  patientKeys?: any[];
 }
 
 const INITIAL_DB: Database = {
@@ -70,7 +71,8 @@ const INITIAL_DB: Database = {
   },
   config: DEFAULT_CONFIG,
   user: "moezaka@gmail.com",
-  masterKeys: []
+  masterKeys: [],
+  patientKeys: []
 };
 
 function newId(): string {
@@ -125,7 +127,22 @@ function normalizeRole(role: any): "full" | "readonly" {
   return role === "readonly" ? "readonly" : "full";
 }
 
-// Returns match info for a provided key against the env master key and stored keys.
+// Human-friendly random code for patient access, e.g. "7K9-QXM-48R" — avoids
+// visually ambiguous characters (0/O, 1/I/L) since it's read/typed by hand.
+const PATIENT_CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+function generatePatientCode(): string {
+  const groups: string[] = [];
+  for (let g = 0; g < 3; g++) {
+    let group = "";
+    for (let i = 0; i < 3; i++) {
+      group += PATIENT_CODE_ALPHABET[randomBytes(1)[0] % PATIENT_CODE_ALPHABET.length];
+    }
+    groups.push(group);
+  }
+  return groups.join("-");
+}
+
+// Returns match info for a provided key against the env master key and stored staff keys.
 function checkKey(db: Database, key: string): { ok: boolean; primary: boolean; label?: string; keyId?: string; role?: "full" | "readonly" } {
   if (constantTimeEqual(key, MASTER_KEY)) return { ok: true, primary: true, label: "Primary" };
   for (const k of db.masterKeys || []) {
@@ -134,6 +151,16 @@ function checkKey(db: Database, key: string): { ok: boolean; primary: boolean; l
     }
   }
   return { ok: false, primary: false };
+}
+
+// Returns match info for a provided key against stored patient access codes.
+function checkPatientKey(db: Database, key: string): { ok: boolean; keyId?: string; operationId?: string; patientId?: string } {
+  for (const k of db.patientKeys || []) {
+    if (k && k.salt && k.hash && constantTimeEqual(k.hash, hashKey(k.salt, key))) {
+      return { ok: true, keyId: k.id, operationId: k.OperationID, patientId: k.PatientID };
+    }
+  }
+  return { ok: false };
 }
 
 // Login rate limiter
@@ -152,18 +179,20 @@ function recordLoginFail(ip: string) {
   loginAttempts.set(ip, rec);
 }
 
-// In-memory cache of valid secondary keys (id -> role), so per-request auth
-// doesn't need a full DB read every time, while still catching a revoked key
-// within a few seconds instead of waiting out the token's 30-day expiry.
-// Invalidated immediately whenever a key is added/removed/edited.
-let keyCache: { byId: Map<string, "full" | "readonly">; loadedAt: number } | null = null;
+// In-memory cache of valid staff + patient keys (id -> live info), so
+// per-request auth doesn't need a full DB read every time, while still
+// catching a revoked key within a few seconds instead of waiting out the
+// token's 30-day expiry. Invalidated immediately on any key add/edit/remove.
+type CacheEntry = { kind: "staff"; role: "full" | "readonly" } | { kind: "patient"; operationId: string; patientId: string };
+let keyCache: { byId: Map<string, CacheEntry>; loadedAt: number } | null = null;
 const KEY_CACHE_TTL_MS = 5000;
 
-async function getKeyCache(): Promise<Map<string, "full" | "readonly">> {
+async function getKeyCache(): Promise<Map<string, CacheEntry>> {
   if (keyCache && Date.now() - keyCache.loadedAt < KEY_CACHE_TTL_MS) return keyCache.byId;
   const db = await readDB();
-  const byId = new Map<string, "full" | "readonly">();
-  (db.masterKeys || []).forEach((k: any) => byId.set(k.id, normalizeRole(k.role)));
+  const byId = new Map<string, CacheEntry>();
+  (db.masterKeys || []).forEach((k: any) => byId.set(k.id, { kind: "staff", role: normalizeRole(k.role) }));
+  (db.patientKeys || []).forEach((k: any) => byId.set(k.id, { kind: "patient", operationId: k.OperationID, patientId: k.PatientID }));
   keyCache = { byId, loadedAt: Date.now() };
   return byId;
 }
@@ -185,7 +214,7 @@ async function readDB(): Promise<Database> {
 
   if (!db.lists) db.lists = JSON.parse(JSON.stringify(INITIAL_DB.lists));
   if (!db.config) db.config = { ...INITIAL_DB.config };
-  for (const key of ["operations", "complications", "followup", "appointments", "drains", "checks", "audit", "masterKeys", "photos"] as const) {
+  for (const key of ["operations", "complications", "followup", "appointments", "drains", "checks", "audit", "masterKeys", "photos", "patientKeys"] as const) {
     if (!Array.isArray((db as any)[key])) (db as any)[key] = [];
   }
   if (!db.user) db.user = INITIAL_DB.user;
@@ -280,14 +309,27 @@ function makeComplication(comp: any, operationId: string, patientId: string) {
   };
 }
 
-// Public db payload: strip secret master keys (hash/salt), keep id/label/role/createdAt via /api/keys instead.
+// Public db payload for STAFF sessions: strip secret master keys entirely
+// (staff manage those via /api/keys) and reduce patient access codes to
+// harmless metadata (no salt/hash — those can't be reversed to the code anyway).
 function publicDB(db: Database) {
-  const { masterKeys, ...rest } = db;
-  return rest;
+  const { masterKeys, patientKeys, ...rest } = db;
+  return {
+    ...rest,
+    patientKeys: (patientKeys || []).map((k) => ({ id: k.id, OperationID: k.OperationID, createdAt: k.createdAt }))
+  };
 }
 
 function photosDir(): string {
   return path.join(path.dirname(DB_FILE), "photos");
+}
+
+// The minimal photo listing a patient session is allowed to see: only her
+// own case's photos, and only the ones she herself uploaded.
+function patientPhotoList(db: Database, operationId: string) {
+  return db.photos
+    .filter((p) => p.OperationID === operationId && p.uploadedByPatient)
+    .map((p) => ({ id: p.id, filename: p.filename, mimeType: p.mimeType, uploadedAt: p.uploadedAt }));
 }
 
 app.use(express.json({ limit: "12mb" }));
@@ -299,21 +341,34 @@ app.post("/api/login", async (req, res) => {
   const key = req.body?.key;
   if (!key) {
     recordLoginFail(ip);
-    return res.status(401).json({ error: "Invalid master key." });
+    return res.status(401).json({ error: "Invalid key." });
   }
   const db = await readDB();
-  const result = checkKey(db, key);
-  if (!result.ok) {
-    recordLoginFail(ip);
-    return res.status(401).json({ error: "Invalid master key." });
+
+  const staffResult = checkKey(db, key);
+  if (staffResult.ok) {
+    const payload: Record<string, any> = { sub: staffResult.label || "user", kind: "staff", primary: staffResult.primary, iat: Date.now(), exp: Date.now() + SESSION_TTL_MS };
+    if (!staffResult.primary) {
+      payload.keyId = staffResult.keyId;
+      payload.role = staffResult.role;
+    }
+    const token = signToken(payload);
+    return res.json({ token, kind: "staff", primary: staffResult.primary, label: staffResult.label, role: staffResult.primary ? "full" : staffResult.role });
   }
-  const payload: Record<string, any> = { sub: result.label || "user", primary: result.primary, iat: Date.now(), exp: Date.now() + SESSION_TTL_MS };
-  if (!result.primary) {
-    payload.keyId = result.keyId;
-    payload.role = result.role;
+
+  const patientResult = checkPatientKey(db, key);
+  if (patientResult.ok) {
+    const payload = {
+      sub: patientResult.patientId, kind: "patient", primary: false,
+      keyId: patientResult.keyId, operationId: patientResult.operationId, patientId: patientResult.patientId,
+      iat: Date.now(), exp: Date.now() + SESSION_TTL_MS
+    };
+    const token = signToken(payload);
+    return res.json({ token, kind: "patient" });
   }
-  const token = signToken(payload);
-  res.json({ token, primary: result.primary, label: result.label, role: result.primary ? "full" : result.role });
+
+  recordLoginFail(ip);
+  return res.status(401).json({ error: "Invalid key." });
 });
 
 // Cron backup authenticates via CRON_SECRET.
@@ -331,22 +386,49 @@ app.post("/api/cron/backup", async (req, res) => {
   }
 });
 
-// Session guard for everything else under /api: verifies the token, then for
-// secondary (non-primary) sessions confirms the specific key hasn't been
-// revoked and enforces the read-only role (blocks non-GET methods).
+// Patient sessions get a tightly restricted allowlist of routes — everything
+// else under /api/* is 403'd before it ever reaches a route handler.
+const PATIENT_ALLOWLIST: { method: string; test: (path: string) => boolean }[] = [
+  { method: "GET", test: (p) => p === "/api/me" },
+  { method: "GET", test: (p) => p === "/api/patient/case" },
+  { method: "GET", test: (p) => /^\/api\/photos\/[^/]+$/.test(p) },
+  { method: "POST", test: (p) => p === "/api/photos" },
+  { method: "DELETE", test: (p) => /^\/api\/photos\/[^/]+$/.test(p) }
+];
+
+// Session guard for everything else under /api. Branches on token kind:
+//  - staff tokens: confirm the specific key hasn't been revoked, enforce the
+//    read-only role (blocks non-GET methods).
+//  - patient tokens: confirm the access code hasn't been revoked, enforce the
+//    strict allowlist above regardless of method/role.
 app.use("/api", async (req, res, next) => {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   const payload = verifyToken(token);
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
 
+  if (payload.kind === "patient") {
+    const cache = await getKeyCache();
+    const entry = payload.keyId ? cache.get(payload.keyId) : undefined;
+    if (!entry || entry.kind !== "patient") return res.status(401).json({ error: "This access code has been revoked." });
+    payload.operationId = entry.operationId;
+    payload.patientId = entry.patientId;
+
+    const reqPath = req.originalUrl.split("?")[0];
+    const allowed = PATIENT_ALLOWLIST.some((r) => r.method === req.method && r.test(reqPath));
+    if (!allowed) return res.status(403).json({ error: "This is a patient upload account with limited access." });
+
+    (req as any).session = payload;
+    return next();
+  }
+
   if (payload.primary) {
     payload.role = "full";
   } else {
     const cache = await getKeyCache();
-    const liveRole = payload.keyId ? cache.get(payload.keyId) : undefined;
-    if (!liveRole) return res.status(401).json({ error: "This access key has been revoked." });
-    payload.role = liveRole; // always trust the live role, not the token's stale copy
+    const entry = payload.keyId ? cache.get(payload.keyId) : undefined;
+    if (!entry || entry.kind !== "staff") return res.status(401).json({ error: "This access key has been revoked." });
+    payload.role = entry.role; // always trust the live role, not the token's stale copy
   }
 
   if (payload.role === "readonly" && req.method !== "GET") {
@@ -359,7 +441,66 @@ app.use("/api", async (req, res, next) => {
 
 app.get("/api/me", (req, res) => {
   const s = (req as any).session || {};
-  res.json({ ok: true, user: INITIAL_DB.user, primary: !!s.primary, label: s.sub, role: s.role || "full" });
+  if (s.kind === "patient") {
+    return res.json({ ok: true, kind: "patient" });
+  }
+  res.json({ ok: true, kind: "staff", user: INITIAL_DB.user, primary: !!s.primary, label: s.sub, role: s.role || "full" });
+});
+
+// --- Patient portal (patient session only) --------------------------------
+app.get("/api/patient/case", async (req, res) => {
+  const s = (req as any).session;
+  if (!s || s.kind !== "patient") return res.status(403).json({ error: "Not a patient session." });
+  try {
+    const db = await readDB();
+    res.json({ photos: patientPhotoList(db, s.operationId) });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Patient access key management (staff, non-readonly) -----------------
+app.post("/api/operations/:id/patient-key", async (req, res) => {
+  try {
+    const db = await readDB();
+    const op = db.operations.find((o) => o.id === req.params.id);
+    if (!op) return res.status(404).json({ error: "Case not found." });
+    const who = actorOf(req, db);
+
+    // Revoke any existing code for this case first — one active code per case.
+    db.patientKeys = (db.patientKeys || []).filter((k) => k.OperationID !== op.id);
+
+    const code = generatePatientCode();
+    const salt = randomBytes(16).toString("hex");
+    const entry = { id: newId(), OperationID: op.id, PatientID: op.PatientID, salt, hash: hashKey(salt, code), createdAt: new Date().toISOString(), createdBy: who };
+    db.patientKeys.push(entry);
+
+    logAudit(db, who, "Issue Patient Access", `Issued a patient upload code for ${op.PatientID}`);
+    await writeDB(db);
+    invalidateKeyCache();
+    res.json({ ...publicDB(db), issuedPatientCode: { code, OperationID: op.id, createdAt: entry.createdAt } });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/operations/:id/patient-key", async (req, res) => {
+  try {
+    const db = await readDB();
+    const op = db.operations.find((o) => o.id === req.params.id);
+    if (!op) return res.status(404).json({ error: "Case not found." });
+    const who = actorOf(req, db);
+
+    const had = (db.patientKeys || []).some((k) => k.OperationID === op.id);
+    db.patientKeys = (db.patientKeys || []).filter((k) => k.OperationID !== op.id);
+    if (had) logAudit(db, who, "Revoke Patient Access", `Revoked the patient upload code for ${op.PatientID}`);
+
+    await writeDB(db);
+    invalidateKeyCache();
+    res.json(publicDB(db));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- Master key management (primary session only) ------------------------
@@ -498,8 +639,8 @@ app.put("/api/operations", async (req, res) => {
     // Keep denormalized PatientID in sync on this case's ancillary rows + patient-level appointments.
     if (String(op.PatientID).toLowerCase() !== String(oldPatientID).toLowerCase()) {
       const newPid = op.PatientID;
-      [db.drains, db.complications, db.followup, db.checks, db.photos].forEach((rows) =>
-        rows.forEach((r) => { if (r.OperationID === op.id) r.PatientID = newPid; })
+      [db.drains, db.complications, db.followup, db.checks, db.photos, db.patientKeys].forEach((rows) =>
+        (rows || []).forEach((r: any) => { if (r.OperationID === op.id) r.PatientID = newPid; })
       );
       db.appointments.forEach((a) => { if (a.PatientID === oldPatientID) a.PatientID = newPid; });
     }
@@ -532,6 +673,8 @@ app.delete("/api/operations/:id", async (req, res) => {
     db.followup = db.followup.filter((f) => f.OperationID !== id);
     db.checks = db.checks.filter((ch) => ch.OperationID !== id);
     db.photos = db.photos.filter((p) => p.OperationID !== id);
+    const hadPatientKey = (db.patientKeys || []).some((k) => k.OperationID === id);
+    db.patientKeys = (db.patientKeys || []).filter((k) => k.OperationID !== id);
 
     // Appointments are patient-level; only purge when the patient has no cases left.
     const patientHasOtherCases = db.operations.some((o) => o.PatientID === pid);
@@ -539,6 +682,7 @@ app.delete("/api/operations/:id", async (req, res) => {
 
     logAudit(db, who, "Delete Operation", `Deleted case ${id} for patient ID ${pid}`);
     await writeDB(db);
+    if (hadPatientKey) invalidateKeyCache();
 
     // Best-effort file cleanup after the DB write succeeds.
     for (const p of photosToDelete) {
@@ -804,8 +948,12 @@ app.post("/api/backup/upload", async (req, res) => {
       return res.status(400).json({ error: "Invalid backup file structure." });
     }
     const current = await readDB();
-    // Preserve existing master keys unless the backup explicitly carries them.
-    const merged = { ...INITIAL_DB, ...newDb, masterKeys: Array.isArray(newDb.masterKeys) ? newDb.masterKeys : current.masterKeys };
+    // Preserve existing master/patient keys unless the backup explicitly carries them.
+    const merged = {
+      ...INITIAL_DB, ...newDb,
+      masterKeys: Array.isArray(newDb.masterKeys) ? newDb.masterKeys : current.masterKeys,
+      patientKeys: Array.isArray(newDb.patientKeys) ? newDb.patientKeys : current.patientKeys
+    };
     await writeDB(merged as Database);
     invalidateKeyCache();
     const updatedDb = await readDB();
@@ -858,7 +1006,11 @@ app.get("/api/export/csv", async (req, res) => {
 // --- Photos ---------------------------------------------------------------
 app.post("/api/photos", async (req, res) => {
   try {
-    const { OperationID, filename, mimeType, dataBase64 } = req.body || {};
+    const s = (req as any).session;
+    const isPatient = s?.kind === "patient";
+    const { filename, mimeType, dataBase64 } = req.body || {};
+    // Patients can only ever upload to their own case, regardless of what the body claims.
+    const OperationID = isPatient ? s.operationId : req.body?.OperationID;
     if (!OperationID || !dataBase64) return res.status(400).json({ error: "A case and image data are required." });
     if (!mimeType || !String(mimeType).startsWith("image/")) return res.status(400).json({ error: "Only image files are supported." });
 
@@ -883,11 +1035,16 @@ app.post("/api/photos", async (req, res) => {
     const meta = {
       id, OperationID, PatientID: op.PatientID,
       filename: (filename || "photo").toString().slice(0, 120),
-      mimeType, size: buffer.length, uploadedAt: new Date().toISOString(), uploadedBy: who
+      mimeType, size: buffer.length, uploadedAt: new Date().toISOString(), uploadedBy: who,
+      uploadedByPatient: isPatient
     };
     db.photos.push(meta);
-    logAudit(db, who, "Upload Photo", `Uploaded photo '${meta.filename}' for ${op.PatientID}`);
+    logAudit(db, who, isPatient ? "Patient Upload Photo" : "Upload Photo", `Uploaded photo '${meta.filename}' for ${op.PatientID}`);
     await writeDB(db);
+
+    if (isPatient) {
+      return res.json({ photos: patientPhotoList(db, s.operationId) });
+    }
     res.json(publicDB(db));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -896,9 +1053,13 @@ app.post("/api/photos", async (req, res) => {
 
 app.get("/api/photos/:id", async (req, res) => {
   try {
+    const s = (req as any).session;
     const db = await readDB();
     const meta = db.photos.find((p) => p.id === req.params.id);
     if (!meta) return res.status(404).json({ error: "Photo not found." });
+    if (s?.kind === "patient" && meta.OperationID !== s.operationId) {
+      return res.status(404).json({ error: "Photo not found." });
+    }
     const buf = await fs.readFile(path.join(photosDir(), meta.id));
     res.setHeader("Content-Type", meta.mimeType);
     res.setHeader("Cache-Control", "private, max-age=3600");
@@ -910,14 +1071,25 @@ app.get("/api/photos/:id", async (req, res) => {
 
 app.delete("/api/photos/:id", async (req, res) => {
   try {
+    const s = (req as any).session;
     const db = await readDB();
-    const who = actorOf(req, db);
     const meta = db.photos.find((p) => p.id === req.params.id);
+
+    if (s?.kind === "patient") {
+      if (!meta || meta.OperationID !== s.operationId || !meta.uploadedByPatient) {
+        return res.status(404).json({ error: "Photo not found." });
+      }
+    }
+
+    const who = actorOf(req, db);
     db.photos = db.photos.filter((p) => p.id !== req.params.id);
     logAudit(db, who, "Delete Photo", meta ? `Deleted photo '${meta.filename}' for ${meta.PatientID}` : "Deleted photo");
     await writeDB(db);
     if (meta) {
       try { await fs.unlink(path.join(photosDir(), meta.id)); } catch { /* already gone */ }
+    }
+    if (s?.kind === "patient") {
+      return res.json({ photos: patientPhotoList(db, s.operationId) });
     }
     res.json(publicDB(db));
   } catch (err: any) {
