@@ -109,6 +109,7 @@ export default function App() {
     resolve: (value: string | undefined) => void;
   } | null>(null);
   const [quickAddValue, setQuickAddValue] = useState("");
+  const quickAddInputRef = useRef<HTMLInputElement>(null);
 
   // Synchronize theme class on document.body for dynamic backgrounds, and
   // also apply the theme's variables as direct inline styles (belt-and-
@@ -590,7 +591,9 @@ export default function App() {
 
   const handleConfirmQuickAdd = async () => {
     if (!quickAddPrompt || !db) return;
-    const v = quickAddValue.trim();
+    // Read the live DOM value as the source of truth — guards against any
+    // controlled-input state lag dropping the tail of a fast-typed value.
+    const v = (quickAddInputRef.current?.value ?? quickAddValue).trim();
     if (!v) {
       quickAddPrompt.resolve(undefined);
       setQuickAddPrompt(null);
@@ -1129,6 +1132,7 @@ export default function App() {
                 Name / Label
               </label>
               <input
+                ref={quickAddInputRef}
                 autoFocus
                 type="text"
                 value={quickAddValue}
